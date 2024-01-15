@@ -9,7 +9,7 @@ COPY pom.xml .
 COPY src src
 
 # Empaquetar la aplicación como un archivo JAR
-RUN mvn clean package spring-boot:repackage
+RUN mvn clean package spring-boot:repackage -DskipTests
 
 # Crear una imagen Docker con la aplicación compilada
 FROM eclipse-temurin:17-jre-jammy

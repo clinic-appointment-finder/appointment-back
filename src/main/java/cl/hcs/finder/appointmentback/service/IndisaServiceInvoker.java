@@ -3,14 +3,10 @@ package cl.hcs.finder.appointmentback.service;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-
-import java.net.http.HttpClient;
-
 import org.slf4j.Logger;
 import cl.hcs.finder.appointmentback.common.Helper;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
-import jakarta.annotation.PostConstruct;
 import reactor.core.publisher.Mono;
 
 @Service

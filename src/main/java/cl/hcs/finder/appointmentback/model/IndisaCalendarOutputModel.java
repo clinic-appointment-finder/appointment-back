@@ -1,7 +1,5 @@
 package cl.hcs.finder.appointmentback.model;
 
-import java.util.List;
-
 import com.fasterxml.jackson.annotation.JsonAlias;
 
 public record IndisaCalendarOutputModel(
@@ -11,5 +9,5 @@ public record IndisaCalendarOutputModel(
         @JsonAlias("is_first_date") boolean isFirstDate,
         String status,
         @JsonAlias("today_str") String todayStr,
-        @JsonAlias("working_dates") List<String> workingDates) {
+        @JsonAlias("working_dates") String[] workingDates) {
 }

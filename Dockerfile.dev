@@ -1,0 +1,22 @@
+# Utiliza una imagen base con JDK 17
+FROM openjdk:17-jdk-slim
+
+# Define la versión de Maven que deseas utilizar
+#ENV MAVEN_VERSION=3.8.4
+
+RUN apt-get update && \
+    apt-get install -y curl maven make telnet && \
+    apt-get clean
+
+# Copia tu código fuente y archivos de proyecto aquí (si es necesario)
+COPY . /app
+
+# Establece el directorio de trabajo
+WORKDIR /app
+
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+
+ENV TZ=America/Santiago
+
+RUN mvn clean install

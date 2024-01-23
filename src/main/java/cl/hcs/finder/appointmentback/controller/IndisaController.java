@@ -90,6 +90,12 @@ public class IndisaController {
         return new ResponseEntity<>(createdTaskProgram, HttpStatus.CREATED);
     }
 
+    @Operation(summary = "Buscar todos los programas", description = "trae todos las tareas programadas existentes en la base de datos")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", content = {
+                    @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
+            @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
+            @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) }) 
     @GetMapping("/appointments")
     public ResponseEntity<List<TaskProgram>> findAllTaskProgram() {
         List<TaskProgram> list = taskProgramService.FindAll();

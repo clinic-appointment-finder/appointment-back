@@ -23,10 +23,19 @@ import cl.hcs.finder.appointmentback.model.TaskProgram;
 import cl.hcs.finder.appointmentback.service.AppointmentDoctorService;
 import cl.hcs.finder.appointmentback.service.IndisaServiceInvoker;
 import cl.hcs.finder.appointmentback.service.TaskProgramService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/clinic/indisa")
+@Tag(name = "Indisa Controller", description = "Endpoints para administrar las citas de la clinica Indisa")
 public class IndisaController {
 
     @Autowired
@@ -45,18 +54,38 @@ public class IndisaController {
         this.appointmentDoctorService = appointmentDoctorService;
     }
 
+    @Operation(summary = "Buscar cita en la clínica", description = "Busca una cita para un doctor con la API de la clínica Indisa")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", content = {
+                    @Content(schema = @Schema(implementation = IndisaCalendarOutputModel.class), mediaType = "application/json") }),
+            @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
+            @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @GetMapping("/external/appointments")
-    public Mono<IndisaCalendarOutputModel> invokeExternalService(@RequestParam String agendaID,
-            @RequestParam String specialityID,
-            @RequestParam String doctorID,
-            @RequestParam String office) {
+    public Mono<IndisaCalendarOutputModel> invokeExternalService(
+            @Parameter(description = "identificador único de la sesión para usar api externa", example = "65af298ffc465ea2f7dedb49", required = true) @RequestParam String agendaID,
+            @Parameter(description = "ID de la Especialidad médica", example = "226", required = true) @RequestParam String specialityID,
+            @Parameter(description = "ID del doctor asociada a la sucursal ", example = "14655", required = true) @RequestParam String doctorID,
+            @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office) {
         return externalServiceInvoker
                 .invokeExternalIndisaCalendarEndpoint(
                         new IndisaCalendarInputModel(agendaID, specialityID, doctorID, office));
     }
 
+    @Operation(summary = "Crea una tarea programada", description = "Crear un registro de búsqueda de cita para una tarea programada")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", content = {
+                    @Content(schema = @Schema(implementation = TaskProgram.class), mediaType = "application/json") }),
+            @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @PostMapping("/appointments")
-    public ResponseEntity<TaskProgram> createTaskProgram(@RequestBody IndisaAppointmentInputModel inputModel) {
+    public ResponseEntity<TaskProgram> createTaskProgram(
+            @Schema(description = "Input body para crear una tarea", example = "{\"previsionID\": 67,\n" + //
+                    "  \"startDate\": \"2024-01-15\",\n" + //
+                    "  \"endDate\": \"2024-01-20\",\n" + //
+                    "  \"specialityID\": 226,\n" + //
+                    "  \"doctorsIDs\": [14655, 12375],\n" + //
+                    "  \"office\": \"PROVIDENCIA\",\n" + //
+                    "  \"emails\": [\"email1@example.com\", \"email2@example.com\"]}", required = true) @RequestBody IndisaAppointmentInputModel inputModel) {
+
         TaskProgram createdTaskProgram = taskProgramService.createTaskProgram(inputModel);
         return new ResponseEntity<>(createdTaskProgram, HttpStatus.CREATED);
     }

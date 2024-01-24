@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -93,12 +94,16 @@ public class IndisaController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", content = {
                     @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
+            @ApiResponse(responseCode = "400", content = { @Content(schema = @Schema()) }),
             @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
             @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) }) 
     @GetMapping("/appointments")
-    public ResponseEntity<List<TaskProgram>> findAllTaskProgram() {
-        List<TaskProgram> list = taskProgramService.FindAll();
-        return new ResponseEntity<>(list, HttpStatus.OK);
+    public ResponseEntity<List<TaskProgram>> findAllTaskProgram(@RequestParam Integer page, @RequestParam Integer size) {
+        if (page == null || size == null){
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        }
+        Page<TaskProgram> pageTask = taskProgramService.FindAll(page, size);                
+        return new ResponseEntity<>(pageTask.getContent(), HttpStatus.OK);
     }
 
     @GetMapping("/appointments/{id}")

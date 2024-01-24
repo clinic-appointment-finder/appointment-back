@@ -26,7 +26,6 @@ import cl.hcs.finder.appointmentback.service.TaskProgramService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
-import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -78,11 +77,11 @@ public class IndisaController {
             @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @PostMapping("/appointments")
     public ResponseEntity<TaskProgram> createTaskProgram(
-            @Schema(description = "Input body para crear una tarea", example = "{\"previsionID\": 67,\n" + //
-                    "  \"startDate\": \"2024-01-15\",\n" + //
-                    "  \"endDate\": \"2024-01-20\",\n" + //
-                    "  \"specialityID\": 226,\n" + //
-                    "  \"doctorsIDs\": [14655, 12375],\n" + //
+            @Schema(description = "Input body para crear una tarea", example = "{\"prevision_id\": 67,\n" + //
+                    "  \"start_date\": \"2024-01-15\",\n" + //
+                    "  \"end_date\": \"2024-01-20\",\n" + //
+                    "  \"speciality_id\": 226,\n" + //
+                    "  \"doctors_ids\": [14655, 12375],\n" + //
                     "  \"office\": \"PROVIDENCIA\",\n" + //
                     "  \"emails\": [\"email1@example.com\", \"email2@example.com\"]}", required = true) @RequestBody IndisaAppointmentInputModel inputModel) {
 

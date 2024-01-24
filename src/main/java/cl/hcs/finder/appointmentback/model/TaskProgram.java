@@ -43,7 +43,7 @@ public class TaskProgram {
 
     private String officeName;
 
-    private Integer speciality;
+    private Integer specialityId;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "task_program_emails", joinColumns = @JoinColumn(name = "task_program_id"))
@@ -112,12 +112,12 @@ public class TaskProgram {
         this.officeName = officeName;
     }
 
-    public Integer getSpeciality() {
-        return speciality;
+    public Integer getSpecialityId() {
+        return specialityId;
     }
 
-    public void setSpeciality(Integer speciality) {
-        this.speciality = speciality;
+    public void setSpecialityId(Integer specialityId) {
+        this.specialityId = specialityId;
     }
 
     public LocalDateTime getCreationDate() {

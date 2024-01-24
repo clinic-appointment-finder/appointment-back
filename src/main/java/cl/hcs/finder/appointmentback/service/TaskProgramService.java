@@ -42,7 +42,7 @@ public class TaskProgramService {
         }        
         taskProgram.setEmails(Arrays.asList(inputModel.emails()));
         taskProgram.setPrevisionId(inputModel.previsionID());
-        taskProgram.setSpeciality(inputModel.specialityID());
+        taskProgram.setSpecialityId(inputModel.specialityID());
         // formato de la cadena de fecha
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         taskProgram.setStartDate(LocalDate.parse(inputModel.startDate(), formatter));

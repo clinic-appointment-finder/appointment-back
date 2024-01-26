@@ -18,11 +18,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import cl.hcs.finder.appointmentback.model.IndisaAppointmentInputModel;
-import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
-import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
 import cl.hcs.finder.appointmentback.model.TaskProgram;
 import cl.hcs.finder.appointmentback.service.AppointmentDoctorService;
-import cl.hcs.finder.appointmentback.service.IndisaServiceInvoker;
+
 import cl.hcs.finder.appointmentback.service.TaskProgramService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,15 +29,11 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/clinic/indisa")
 @Tag(name = "Indisa Controller", description = "Endpoints para administrar las citas de la clinica Indisa")
-public class IndisaController {
-
-    @Autowired
-    private final IndisaServiceInvoker externalServiceInvoker;
+public class IndisaController {    
 
     @Autowired
     private final TaskProgramService taskProgramService;
@@ -47,29 +41,10 @@ public class IndisaController {
     @Autowired
     private final AppointmentDoctorService appointmentDoctorService;
 
-    public IndisaController(IndisaServiceInvoker externalServiceInvoker, TaskProgramService taskProgramService,
-            AppointmentDoctorService appointmentDoctorService) {
-        this.externalServiceInvoker = externalServiceInvoker;
+    public IndisaController(AppointmentDoctorService appointmentDoctorService, TaskProgramService taskProgramService) {        
         this.taskProgramService = taskProgramService;
         this.appointmentDoctorService = appointmentDoctorService;
-    }
-
-    @Operation(summary = "Buscar cita en la clínica", description = "Busca una cita para un doctor con la API de la clínica Indisa")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", content = {
-                    @Content(schema = @Schema(implementation = IndisaCalendarOutputModel.class), mediaType = "application/json") }),
-            @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
-            @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
-    @GetMapping("/external/appointments")
-    public Mono<IndisaCalendarOutputModel> invokeExternalService(
-            @Parameter(description = "identificador único de la sesión para usar api externa", example = "65af298ffc465ea2f7dedb49", required = true) @RequestParam String agendaID,
-            @Parameter(description = "ID de la Especialidad médica", example = "226", required = true) @RequestParam String specialityID,
-            @Parameter(description = "ID del doctor asociada a la sucursal ", example = "14655", required = true) @RequestParam String doctorID,
-            @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office) {
-        return externalServiceInvoker
-                .invokeExternalIndisaCalendarEndpoint(
-                        new IndisaCalendarInputModel(agendaID, specialityID, doctorID, office));
-    }
+    }    
 
     @Operation(summary = "Crea una tarea programada", description = "Crear un registro de búsqueda de cita para una tarea programada")
     @ApiResponses({
@@ -101,8 +76,8 @@ public class IndisaController {
     public ResponseEntity<List<TaskProgram>> findAllTaskProgram(
             @Parameter(description = "Paginación -> Número de página", example = "0", required = true) @RequestParam Integer page,
             @Parameter(description = "Paginación -> cantidad de registros por página", example = "5", required = true) @RequestParam Integer size,
-            @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", required = false) @RequestParam Boolean isTaskValidate,
-            @Parameter(description = "hay un flag en BD que indica si es una tarea activa", example = "true", required = false) @RequestParam Boolean isActive,
+            @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", allowEmptyValue = true) @RequestParam Boolean isTaskValidate,
+            @Parameter(description = "hay un flag en BD que indica si es una tarea activa", example = "true", allowEmptyValue = true) @RequestParam Boolean isActive,
             @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true ) @RequestParam String office) {
         if (page == null || size == null) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);

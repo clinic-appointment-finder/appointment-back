@@ -70,7 +70,7 @@ public class IndisaServiceInvoker {
                                 .build();
         }
 
-        public Mono<IndisaCalendarOutputModel> invokeExternalIndisaCalendarEndpoint(IndisaCalendarInputModel input) {
+        public Mono<IndisaCalendarOutputModel> invokeIndisaCalendar(IndisaCalendarInputModel input) {
                 String requestBody = indisaApiCalendarBody
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.specialityID())
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.doctorID())
@@ -80,7 +80,7 @@ public class IndisaServiceInvoker {
                                 requestBody);
 
                 return webClient.post()
-                                .uri(indisaUrlApiPathCalendar + "/" + invokeExternalIndisaScheduleEndpoint())
+                                .uri(indisaUrlApiPathCalendar + "/" + invokeIndisaSchedule())
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .bodyValue(requestBody)
@@ -89,14 +89,14 @@ public class IndisaServiceInvoker {
         }
 
         @Cacheable("indisaOfficeCache")
-        public List<String> invokeExternalIndisaOfficeEndpoint() {
+        public List<String> invokeIndisaOffice() {
                 String requestBody = indisaApiCommonBody;
 
                 log.info("Making request to Indisa API. Office -> RequestBody: {}",
                                 requestBody);
 
                 ExternalApiResponse result = webClient.post()
-                                .uri(String.format("%s/%s", pathOffice, invokeExternalIndisaScheduleEndpoint()))
+                                .uri(String.format("%s/%s", pathOffice, invokeIndisaSchedule()))
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .header("Referer", indisaApiReferer)
@@ -116,7 +116,7 @@ public class IndisaServiceInvoker {
                 return matches;
         }
         @Cacheable("indisaScheduleCache")
-        private String invokeExternalIndisaScheduleEndpoint() {
+        private String invokeIndisaSchedule() {
                 String requestBody = indisaApiCommonBody;
 
                 log.info("Making request to Indisa API. Schedule -> RequestBody: {}",

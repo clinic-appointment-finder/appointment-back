@@ -46,7 +46,7 @@ public class IndisaExternalController {
             @Parameter(description = "ID del doctor asociada a la sucursal ", example = "14655", required = true) @RequestParam String doctorID,
             @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office) {
         return externalServiceInvoker
-                .invokeExternalIndisaCalendarEndpoint(
+                .invokeIndisaCalendar(
                         new IndisaCalendarInputModel(specialityID, doctorID, office));
     }
 
@@ -59,7 +59,7 @@ public class IndisaExternalController {
     @GetMapping("/offices")
     public ResponseEntity<List<String>> invokeExternalServiceOffice() {
         List<String> result = externalServiceInvoker
-                .invokeExternalIndisaOfficeEndpoint();
+                .invokeIndisaOffice();
         if (result.isEmpty())
             new ResponseEntity<>(HttpStatus.NOT_FOUND);
         return new ResponseEntity<>(result, HttpStatus.OK);

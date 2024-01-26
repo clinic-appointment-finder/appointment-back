@@ -90,19 +90,24 @@ public class IndisaController {
         return new ResponseEntity<>(createdTaskProgram, HttpStatus.CREATED);
     }
 
-    @Operation(summary = "Buscar todos los programas", description = "trae todos las tareas programadas existentes en la base de datos")
+    @Operation(summary = "Buscar los programas", description = "trae todos las tareas programadas existentes en la base de datos con paginación")
     @ApiResponses({
             @ApiResponse(responseCode = "200", content = {
                     @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
             @ApiResponse(responseCode = "400", content = { @Content(schema = @Schema()) }),
             @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
-            @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) }) 
+            @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @GetMapping("/appointments")
-    public ResponseEntity<List<TaskProgram>> findAllTaskProgram(@RequestParam Integer page, @RequestParam Integer size) {
-        if (page == null || size == null){
+    public ResponseEntity<List<TaskProgram>> findAllTaskProgram(
+            @Parameter(description = "Paginación -> Número de página", example = "0", required = true) @RequestParam Integer page,
+            @Parameter(description = "Paginación -> cantidad de registros por página", example = "5", required = true) @RequestParam Integer size,
+            @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", required = false) @RequestParam Boolean isTaskValidate,
+            @Parameter(description = "hay un flag en BD que indica si es una tarea activa", example = "true", required = false) @RequestParam Boolean isActive,
+            @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true ) @RequestParam String office) {
+        if (page == null || size == null) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
-        Page<TaskProgram> pageTask = taskProgramService.FindAll(page, size);                
+        Page<TaskProgram> pageTask = taskProgramService.FindAll(page, size, isTaskValidate, isActive, office);
         return new ResponseEntity<>(pageTask.getContent(), HttpStatus.OK);
     }
 

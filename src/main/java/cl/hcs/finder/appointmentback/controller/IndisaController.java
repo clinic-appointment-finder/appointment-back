@@ -17,8 +17,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import cl.hcs.finder.appointmentback.entity.TaskProgram;
 import cl.hcs.finder.appointmentback.model.IndisaAppointmentInputModel;
-import cl.hcs.finder.appointmentback.model.TaskProgram;
 import cl.hcs.finder.appointmentback.service.AppointmentDoctorService;
 
 import cl.hcs.finder.appointmentback.service.TaskProgramService;
@@ -121,5 +121,6 @@ public class IndisaController {
         }
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
+    
 
 }

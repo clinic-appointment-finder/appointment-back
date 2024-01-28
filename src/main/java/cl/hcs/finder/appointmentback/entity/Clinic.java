@@ -1,4 +1,4 @@
-package cl.hcs.finder.appointmentback.model;
+package cl.hcs.finder.appointmentback.entity;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

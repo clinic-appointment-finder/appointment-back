@@ -9,9 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -19,7 +21,8 @@ import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import cl.hcs.finder.appointmentback.common.Helper;
-import cl.hcs.finder.appointmentback.model.ExternalApiResponse;
+import cl.hcs.finder.appointmentback.model.ExternalApiResponseModel;
+import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
 import reactor.core.publisher.Mono;
@@ -49,6 +52,12 @@ public class IndisaServiceInvoker {
         @Value("${indisa.app.url.path.office}")
         private String pathOffice;
 
+        @Value("${indisa.app.url.path.speciality}")
+        private String pathSpeciality;
+
+        @Value("${indisa.app.url.path.prevision}")
+        private String pathPrevison;
+
         @Value("${indisa.app.url.path.schedule}")
         private String pathSchedule;
 
@@ -76,7 +85,7 @@ public class IndisaServiceInvoker {
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.doctorID())
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.office());
 
-                log.info("Making request to Indisa API. Calendar ->  RequestBody: {}",                                
+                log.info("Making request to Indisa API. Calendar ->  RequestBody: {}",
                                 requestBody);
 
                 return webClient.post()
@@ -95,14 +104,14 @@ public class IndisaServiceInvoker {
                 log.info("Making request to Indisa API. Office -> RequestBody: {}",
                                 requestBody);
 
-                ExternalApiResponse result = webClient.post()
+                ExternalApiResponseModel result = webClient.post()
                                 .uri(String.format("%s/%s", pathOffice, invokeIndisaSchedule()))
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .header("Referer", indisaApiReferer)
                                 .bodyValue(requestBody)
                                 .retrieve()
-                                .bodyToMono(ExternalApiResponse.class).block();
+                                .bodyToMono(ExternalApiResponseModel.class).block();
 
                 // log.info("result {}", result);
                 String regex = "data-id=\"([^\"]+)\"";
@@ -115,6 +124,63 @@ public class IndisaServiceInvoker {
                 }
                 return matches;
         }
+
+        @Cacheable("indisaPrevisionCache")
+        public List<GenericOutputModel> invokeIndisaPrevision() {
+
+                log.info("Making request to Indisa API. Prevision");
+                JsonNode result = webClient.get()
+                                .uri(String.format("%s", pathPrevison))
+                                .header("Accept", "*/*")
+                                .header("Content-Type", "application/json")
+                                .header("Referer", indisaApiReferer)
+                                .retrieve()
+                                .bodyToMono(JsonNode.class)
+                                .block();
+
+                // log.info("agenda result {}", result);
+
+                List<GenericOutputModel> outputModels = new ArrayList<>();
+
+                // Verifica si "data" es un array
+                if (result != null && result.get("data").isArray()) {
+                        Iterator<JsonNode> elements = result.get("data").elements();
+
+                        // Itera sobre los elementos del array y mapea cada elemento a un
+                        // GenericOutputModel
+                        while (elements.hasNext()) {
+                                JsonNode element = elements.next();
+                                GenericOutputModel outputModel = new ObjectMapper().convertValue(element,
+                                                GenericOutputModel.class);
+                                outputModels.add(outputModel);
+                        }
+                }
+
+                return outputModels;
+        }
+
+        @Cacheable("indisaSpecialityCache")
+        public List<GenericOutputModel> invokeIndisaSpeciality(String codePrevision, String office) {
+                String requestBody = indisaApiCommonBody.replace("isapre=", "isapre=" + codePrevision)
+                                .replace("office_id=", "office_id=" + office);
+
+                log.info("Making request to Indisa API. Office -> RequestBody: {}",
+                                requestBody);
+                JsonNode result = webClient.post()
+                                .uri(String.format("%s/%s", pathSpeciality, invokeIndisaSchedule()))
+                                .header("Accept", "*/*")
+                                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+                                .header("Referer", indisaApiReferer)
+                                .bodyValue(requestBody)
+                                .retrieve()
+                                .bodyToMono(JsonNode.class)
+                                .block();
+
+                log.info("agenda result {}", result);
+
+                return extractSpecialities(result.get("data").asText());
+        }
+
         @Cacheable("indisaScheduleCache")
         private String invokeIndisaSchedule() {
                 String requestBody = indisaApiCommonBody;
@@ -142,10 +208,38 @@ public class IndisaServiceInvoker {
                 log.info("vaciando sucursales cache");
         }
 
+        @CacheEvict(value = "indisaPrevisionCache", allEntries = true)
+        @Scheduled(fixedRate = TIME_VALIDATE_LONG)
+        public void emptyPrevisionCache() {
+                log.info("vaciando previsión cache!");
+        }
 
-        @CacheEvict(value = "indisaScheduleCache", allEntries = true)        
+        @CacheEvict(value = "indisaSpecialityCache", allEntries = true)
+        @Scheduled(fixedRate = TIME_VALIDATE_MEDIUM)
+        public void emptySpecialityCache() {
+                log.info("vaciando especialidades cache!");
+        }
+
+        @CacheEvict(value = "indisaScheduleCache", allEntries = true)
         public void emptyScheduleCache() {
                 log.info("vaciando agenda cache!");
+        }
+
+        private static List<GenericOutputModel> extractSpecialities(String data) {
+                String regex = "<li[^>]*>\\s*<a[^>]*class=\"especialidad\"[^>]*data-id=\"([^\"]*)\"[^>]*data-type=\"speciality\"[^>]*>(.*?)<\\/a>\\s*<\\/li>";
+                Pattern pattern = Pattern.compile(regex);
+                Matcher matcher = pattern.matcher(data);
+
+                List<GenericOutputModel> specialities = new ArrayList<>();
+
+                while (matcher.find()) {
+                        String dataId = matcher.group(1);
+                        String text = matcher.group(2);
+                        GenericOutputModel speciality = new GenericOutputModel(dataId, text.trim());
+                        specialities.add(speciality);
+                }
+
+                return specialities;
         }
 
 }

@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import cl.hcs.finder.appointmentback.model.TaskProgram;
+import cl.hcs.finder.appointmentback.entity.TaskProgram;
 
 @Repository
 public interface TaskProgramRepository extends JpaRepository<TaskProgram, Long>, JpaSpecificationExecutor<TaskProgram> {

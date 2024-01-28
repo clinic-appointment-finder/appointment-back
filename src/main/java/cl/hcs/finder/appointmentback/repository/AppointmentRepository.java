@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import cl.hcs.finder.appointmentback.model.AppointmentFound;
+import cl.hcs.finder.appointmentback.entity.AppointmentFound;
 
 public interface AppointmentRepository extends JpaRepository<AppointmentFound, Long> {
 

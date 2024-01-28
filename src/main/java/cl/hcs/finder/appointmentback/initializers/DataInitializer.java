@@ -6,7 +6,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 
 import cl.hcs.finder.appointmentback.common.Helper;
-import cl.hcs.finder.appointmentback.model.Clinic;
+import cl.hcs.finder.appointmentback.entity.Clinic;
 import cl.hcs.finder.appointmentback.repository.ClinicRepository;
 
 @Component

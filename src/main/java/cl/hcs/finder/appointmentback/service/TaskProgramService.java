@@ -15,10 +15,10 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
-import cl.hcs.finder.appointmentback.model.AppointmentFound;
-import cl.hcs.finder.appointmentback.model.Clinic;
+import cl.hcs.finder.appointmentback.entity.AppointmentFound;
+import cl.hcs.finder.appointmentback.entity.Clinic;
+import cl.hcs.finder.appointmentback.entity.TaskProgram;
 import cl.hcs.finder.appointmentback.model.IndisaAppointmentInputModel;
-import cl.hcs.finder.appointmentback.model.TaskProgram;
 import cl.hcs.finder.appointmentback.repository.TaskProgramRepository;
 import jakarta.transaction.Transactional;
 

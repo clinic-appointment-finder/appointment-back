@@ -1,4 +1,4 @@
-package cl.hcs.finder.appointmentback.model;
+package cl.hcs.finder.appointmentback.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 

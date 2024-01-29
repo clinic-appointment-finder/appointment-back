@@ -8,6 +8,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -75,6 +76,9 @@ public class IndisaServiceInvoker {
         // 12 horas en milisegundos
         private static final long TIME_VALIDATE_SHORT = 43200000;
 
+         @Autowired
+        private CacheScheduleService cacheService;
+
         public IndisaServiceInvoker(WebClient.Builder webClientBuilder,
                         @Value("${indisa.app.url}") String indisaApiURL) {
                 this.webClient = webClientBuilder
@@ -94,7 +98,7 @@ public class IndisaServiceInvoker {
                                 requestBody);
 
                 return webClient.post()
-                                .uri(indisaUrlApiPathCalendar + "/" + invokeIndisaSchedule(input.previsionID()))
+                                .uri(indisaUrlApiPathCalendar + "/" + cacheService.invokeIndisaSchedule(input.previsionID()))
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .bodyValue(requestBody)
@@ -110,7 +114,7 @@ public class IndisaServiceInvoker {
                                 requestBody);
 
                 ExternalApiResponseModel result = webClient.post()
-                                .uri(String.format("%s/%s", pathOffice, invokeIndisaSchedule(codePrevision)))
+                                .uri(String.format("%s/%s", pathOffice, cacheService.invokeIndisaSchedule(codePrevision)))
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .header("Referer", indisaApiReferer)
@@ -172,7 +176,7 @@ public class IndisaServiceInvoker {
                 log.info("Making request to Indisa API. Speciality -> RequestBody: {}",
                                 requestBody);
                 JsonNode result = webClient.post()
-                                .uri(String.format("%s/%s", pathSpeciality, invokeIndisaSchedule(codePrevision)))
+                                .uri(String.format("%s/%s", pathSpeciality, cacheService.invokeIndisaSchedule(codePrevision)))
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .header("Referer", indisaApiReferer)
@@ -195,7 +199,7 @@ public class IndisaServiceInvoker {
                 log.info("Making request to Indisa API. Doctors -> RequestBody: {}",
                                 requestBody);
                 JsonNode result = webClient.post()
-                                .uri(String.format("%s/%s", pathDoctors, invokeIndisaSchedule(codePrevision)))
+                                .uri(String.format("%s/%s", pathDoctors, cacheService.invokeIndisaSchedule(codePrevision)))
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .header("Referer", indisaApiReferer)
@@ -207,27 +211,7 @@ public class IndisaServiceInvoker {
                 // log.info("agenda result {}", result);
                 return extractMedicos(result.get("data").asText());
         }
-
-        @Cacheable("indisaScheduleCache")
-        private String invokeIndisaSchedule(String codePrevision) {
-                String requestBody = String.format("medical_insurance=%s&cod_paciente=%s",codePrevision, indisaApirut);
-
-                log.info("Making request to Indisa API. Schedule -> RequestBody: {}",
-                                requestBody);
-
-                JsonNode result = webClient.post()
-                                .uri(String.format("%s/%s", pathSchedule, indisaApirut))
-                                .header("Accept", "*/*")
-                                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                                .header("Referer", indisaApiReferer)
-                                .bodyValue(requestBody)
-                                .retrieve()
-                                .bodyToMono(JsonNode.class)
-                                .block();
-
-                // log.info("agenda result {}", result);
-                return result.get("agenda_id").asText();
-        }
+       
 
         @CacheEvict(value = "indisaOfficeCache", allEntries = true)
         @Scheduled(fixedRate = TIME_VALIDATE_LONG)
@@ -251,11 +235,6 @@ public class IndisaServiceInvoker {
         @Scheduled(fixedRate = TIME_VALIDATE_SHORT)
         public void emptyDoctorsCache() {
                 log.info("vaciando doctors cache!");
-        }
-
-        @CacheEvict(value = "indisaScheduleCache", allEntries = true)
-        public void emptyScheduleCache() {
-                log.info("vaciando agenda cache!");
         }
 
         private static List<GenericOutputModel> extractSpecialities(String data) {

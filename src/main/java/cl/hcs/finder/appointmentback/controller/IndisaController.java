@@ -1,5 +1,7 @@
 package cl.hcs.finder.appointmentback.controller;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -17,10 +19,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import cl.hcs.finder.appointmentback.entity.AppointmentFound;
 import cl.hcs.finder.appointmentback.entity.TaskProgram;
+import cl.hcs.finder.appointmentback.model.DoctorAppointmentOutputModel;
+import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaAppointmentInputModel;
+import cl.hcs.finder.appointmentback.model.MedicalAgreementModel;
+import cl.hcs.finder.appointmentback.model.TaskProgramOutputModel;
+import cl.hcs.finder.appointmentback.model.MedicalAgreementModel.DoctorModel;
 import cl.hcs.finder.appointmentback.service.AppointmentDoctorService;
-
+import cl.hcs.finder.appointmentback.service.IndisaServiceInvoker;
 import cl.hcs.finder.appointmentback.service.TaskProgramService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,18 +41,23 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RestController
 @RequestMapping("/api/v1/clinic/indisa")
 @Tag(name = "Indisa Controller", description = "Endpoints para administrar las citas de la clinica Indisa")
-public class IndisaController {    
+public class IndisaController {
 
     @Autowired
     private final TaskProgramService taskProgramService;
 
     @Autowired
+    private final IndisaServiceInvoker indisaServiceInvoker;
+
+    @Autowired
     private final AppointmentDoctorService appointmentDoctorService;
 
-    public IndisaController(AppointmentDoctorService appointmentDoctorService, TaskProgramService taskProgramService) {        
+    public IndisaController(AppointmentDoctorService appointmentDoctorService, TaskProgramService taskProgramService,
+            IndisaServiceInvoker indisaServiceInvoker) {
         this.taskProgramService = taskProgramService;
         this.appointmentDoctorService = appointmentDoctorService;
-    }    
+        this.indisaServiceInvoker = indisaServiceInvoker;
+    }
 
     @Operation(summary = "Crea una tarea programada", description = "Crear un registro de búsqueda de cita para una tarea programada")
     @ApiResponses({
@@ -73,30 +86,30 @@ public class IndisaController {
             @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
             @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @GetMapping("/appointments")
-    public ResponseEntity<List<TaskProgram>> findAllTaskProgram(
+    public ResponseEntity<List<TaskProgramOutputModel>> findAllTaskProgram(
             @Parameter(description = "Paginación -> Número de página", example = "0", required = true) @RequestParam Integer page,
             @Parameter(description = "Paginación -> cantidad de registros por página", example = "5", required = true) @RequestParam Integer size,
-            @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", allowEmptyValue = true) @RequestParam Boolean isTaskValidate,
-            @Parameter(description = "hay un flag en BD que indica si es una tarea activa", example = "true", allowEmptyValue = true) @RequestParam Boolean isActive,
-            @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true ) @RequestParam String office) {
+            @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", required =  false) @RequestParam(required = false) Boolean isTaskValidate,
+            @Parameter(description = "hay un flag en BD que indica si es una tarea activa", example = "true", allowEmptyValue = true) @RequestParam(required = false) Boolean isActive,
+            @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true) @RequestParam(required = false) String office) {
         if (page == null || size == null) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
         Page<TaskProgram> pageTask = taskProgramService.FindAll(page, size, isTaskValidate, isActive, office);
-        return new ResponseEntity<>(pageTask.getContent(), HttpStatus.OK);
+        return new ResponseEntity<>(transformEntityToOutput(pageTask.getContent()), HttpStatus.OK);
     }
 
     @GetMapping("/appointments/{id}")
-    public ResponseEntity<TaskProgram> getTaskProgramById(@PathVariable Long id) {
+    public ResponseEntity<?> getTaskProgramById(@PathVariable Long id) {
         if (id == null)
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         Optional<TaskProgram> taskProgram = taskProgramService.FindByID(id);
 
         if (taskProgram.isPresent()) {
-            return new ResponseEntity<>(taskProgram.get(), HttpStatus.OK);
+            List<TaskProgramOutputModel> resultList = transformEntityToOutput(Collections.singletonList(taskProgram.get()));
+            return new ResponseEntity<>(resultList.isEmpty() ? "{}" : resultList.get(0), HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-
     }
 
     @PatchMapping("/appointments/{id}")
@@ -112,7 +125,7 @@ public class IndisaController {
     }
 
     @PatchMapping("/appointments/{id}/doctors/{doctorId}")
-    public ResponseEntity<TaskProgram> updateTaskProgramActive(@PathVariable Long id, @PathVariable Integer doctorId,
+    public ResponseEntity<HttpStatus> updateTaskProgramActive(@PathVariable Long id, @PathVariable Integer doctorId,
             @RequestBody Map<String, Boolean> requestBody) {
         boolean isNotify = requestBody.get("isNotify");
         int cantUpdate = appointmentDoctorService.updateAppointmentDoctorNotify(id, doctorId, isNotify);
@@ -121,6 +134,79 @@ public class IndisaController {
         }
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
-    
+
+    private List<TaskProgramOutputModel> transformEntityToOutput(List<TaskProgram> programs) {
+        List<TaskProgramOutputModel> returnList = new ArrayList<>();
+        programs.forEach(taskProgram -> {
+            List<GenericOutputModel> specialities = indisaServiceInvoker
+                    .invokeIndisaSpeciality(taskProgram.getPrevisionId().toString(), taskProgram.getOfficeName());
+            List<GenericOutputModel> previsionList = indisaServiceInvoker.invokeIndisaPrevision();
+            List<DoctorAppointmentOutputModel> doctorsList = transformDoctors(taskProgram.getDoctors(),
+                    indisaServiceInvoker.invokeIndisaDoctors(taskProgram.getPrevisionId().toString(),
+                            taskProgram.getOfficeName(), taskProgram.getSpecialityId().toString()));
+            GenericOutputModel speciality = findSpeciality(specialities, taskProgram.getSpecialityId().toString());
+            GenericOutputModel prevision = findPrevision(previsionList, taskProgram.getPrevisionId().toString());
+
+            returnList.add(new TaskProgramOutputModel(
+                    taskProgram.getTaskProgramId(),
+                    taskProgram.getClinic(),
+                    doctorsList,
+                    prevision,
+                    taskProgram.getStartDate(),
+                    taskProgram.getEndDate(),
+                    taskProgram.getOfficeName(),
+                    speciality,
+                    taskProgram.getEmails(),
+                    taskProgram.getCreationDate(),
+                    taskProgram.isActive()));
+        });
+        return returnList;
+    }
+
+    private GenericOutputModel findSpeciality(List<GenericOutputModel> specialities, String specialityId) {
+        return findGenericOutputModelByCode(specialities, specialityId);
+    }
+
+    private GenericOutputModel findPrevision(List<GenericOutputModel> previsionList, String previsionId) {
+        return findGenericOutputModelByCode(previsionList, previsionId);
+    }
+
+    private GenericOutputModel findGenericOutputModelByCode(List<GenericOutputModel> models, String code) {
+        Optional<GenericOutputModel> matchingModel = models.stream()
+                .filter(model -> model.code().equals(code))
+                .findFirst();
+        return matchingModel.orElse(null);
+    }
+
+    private List<DoctorAppointmentOutputModel> transformDoctors(List<AppointmentFound> doctors,
+            MedicalAgreementModel medicalAgreementModel) {
+        List<DoctorAppointmentOutputModel> doctorsList = new ArrayList<>();
+        doctors.forEach(doctor -> {
+            DoctorModel matchingDoctor = findMatchingDoctor(doctor.getDoctorId().toString(),
+                    medicalAgreementModel.whith());
+            if (matchingDoctor != null) {
+                doctorsList.add(new DoctorAppointmentOutputModel(doctor.getAppointmentFoundId(), doctor.getDoctorId(),
+                        doctor.isNotify(), doctor.getTaskProgram(), matchingDoctor.name(), matchingDoctor.urlImage(),
+                        true));
+            } else {
+                matchingDoctor = findMatchingDoctor(doctor.getDoctorId().toString(), medicalAgreementModel.whithout());
+                if (matchingDoctor != null) {
+                    doctorsList
+                            .add(new DoctorAppointmentOutputModel(doctor.getAppointmentFoundId(), doctor.getDoctorId(),
+                                    doctor.isNotify(), doctor.getTaskProgram(), matchingDoctor.name(),
+                                    matchingDoctor.urlImage(), false));
+                }
+            }
+
+        });
+        return doctorsList;
+    }
+
+    private DoctorModel findMatchingDoctor(String doctorId, List<DoctorModel> docsModel) {
+        Optional<DoctorModel> matchingDoctor = docsModel.stream()
+                .filter(whith -> doctorId.equals(whith.code()))
+                .findFirst();
+        return matchingDoctor.orElse(null);
+    }
 
 }

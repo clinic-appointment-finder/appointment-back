@@ -5,5 +5,6 @@ import com.fasterxml.jackson.annotation.JsonAlias;
 public record IndisaCalendarInputModel(        
         @JsonAlias("speciality_id") String specialityID,
         @JsonAlias("doctor_id") String doctorID,
-        @JsonAlias("office") String office) {
+        @JsonAlias("office") String office,
+        @JsonAlias("prevision_id") String previsionID) {
 }

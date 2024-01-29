@@ -1,7 +1,12 @@
 package cl.hcs.finder.appointmentback.common;
 
+import java.nio.charset.StandardCharsets;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.buffer.DataBufferUtils;
+import org.springframework.http.server.reactive.ServerHttpRequest;
+import org.springframework.web.reactive.function.BodyInserter;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 
 import reactor.core.publisher.Mono;
@@ -23,11 +28,11 @@ public class Helper {
             clientRequest.headers()
                     .forEach((name, values) -> values.forEach(
                             value -> buffer.append(String.format("<Request> %s: %s", name, value)).append("\n")));
+             
             log.info(buffer.toString());
             return Mono.just(clientRequest);
         });
     }
-
     public static ExchangeFilterFunction logResponse() {
         return ExchangeFilterFunction.ofResponseProcessor(clientResponse -> {
             StringBuffer buffer = new StringBuffer();

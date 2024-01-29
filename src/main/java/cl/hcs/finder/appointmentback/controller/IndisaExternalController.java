@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
+import cl.hcs.finder.appointmentback.model.MedicalAgreementModel;
 import cl.hcs.finder.appointmentback.service.IndisaServiceInvoker;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -45,10 +46,12 @@ public class IndisaExternalController {
         public Mono<IndisaCalendarOutputModel> invokeExternalService(
                         @Parameter(description = "ID de la Especialidad médica", example = "226", required = true) @RequestParam String specialityID,
                         @Parameter(description = "ID del doctor asociada a la sucursal ", example = "14655", required = true) @RequestParam String doctorID,
-                        @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office) {
+                        @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office,
+                        @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision) {
                 return externalServiceInvoker
                                 .invokeIndisaCalendar(
-                                                new IndisaCalendarInputModel(specialityID, doctorID, office));
+                                                new IndisaCalendarInputModel(specialityID, doctorID, office,
+                                                                codePrevision));
         }
 
         @Operation(summary = "Buscar sucursales", description = "Busca las sucursales disponibles de la clínica Indisa")
@@ -58,9 +61,10 @@ public class IndisaExternalController {
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/offices")
-        public ResponseEntity<List<String>> invokeExternalServiceOffice() {
+        public ResponseEntity<List<String>> invokeExternalServiceOffice(
+                        @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision) {
                 List<String> result = externalServiceInvoker
-                                .invokeIndisaOffice();
+                                .invokeIndisaOffice(codePrevision);
                 if (result.isEmpty())
                         new ResponseEntity<>(HttpStatus.NOT_FOUND);
                 return new ResponseEntity<>(result, HttpStatus.OK);
@@ -97,6 +101,27 @@ public class IndisaExternalController {
                 List<GenericOutputModel> result = externalServiceInvoker
                                 .invokeIndisaSpeciality(codePrevision, office);
                 if (result.isEmpty())
+                        new ResponseEntity<>(HttpStatus.NOT_FOUND);
+                return new ResponseEntity<>(result, HttpStatus.OK);
+        }
+
+        @Operation(summary = "lista de los médicos", description = "traer los médicos de la clínica Indisa por sucursal, previsión y especialidad")
+        @ApiResponses({
+                        @ApiResponse(responseCode = "200", content = {
+                                        @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
+                        @ApiResponse(responseCode = "400", content = { @Content(schema = @Schema()) }),
+                        @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
+                        @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
+        @GetMapping("/doctor")
+        public ResponseEntity<MedicalAgreementModel> invokeExternalServiceDoctors(
+                        @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision,
+                        @Parameter(description = "Nombre de la sucursal", example = "PROVIDENCIA", required = true) @RequestParam String office,
+                        @Parameter(description = "ID de la especialidad", example = "1", required = true) @RequestParam String codeSpeciality) {
+                if (office == null || codePrevision == null || codeSpeciality == null)
+                        new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+                MedicalAgreementModel result = externalServiceInvoker
+                                .invokeIndisaDoctors(codePrevision, office, codeSpeciality);
+                if (result.whith().isEmpty() && result.whithout().isEmpty())
                         new ResponseEntity<>(HttpStatus.NOT_FOUND);
                 return new ResponseEntity<>(result, HttpStatus.OK);
         }

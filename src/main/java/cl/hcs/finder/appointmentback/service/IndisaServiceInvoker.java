@@ -63,9 +63,7 @@ public class IndisaServiceInvoker {
 
         @Value("${indisa.app.url.path.prevision}")
         private String pathPrevison;
-
-        @Value("${indisa.app.url.path.schedule}")
-        private String pathSchedule;
+       
 
         // 10 días en milisegundos
         private static final long TIME_VALIDATE_LONG = 864000000;

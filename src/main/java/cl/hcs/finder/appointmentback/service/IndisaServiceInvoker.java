@@ -86,7 +86,7 @@ public class IndisaServiceInvoker {
                                 .build();
         }
 
-        public Mono<IndisaCalendarOutputModel> invokeIndisaCalendar(IndisaCalendarInputModel input) {
+        public IndisaCalendarOutputModel invokeIndisaCalendar(IndisaCalendarInputModel input) {
                 String requestBody = indisaApiCalendarBody
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.specialityID())
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.doctorID())
@@ -101,7 +101,7 @@ public class IndisaServiceInvoker {
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .bodyValue(requestBody)
                                 .retrieve()
-                                .bodyToMono(IndisaCalendarOutputModel.class);
+                                .bodyToMono(IndisaCalendarOutputModel.class).block();
         }
 
         @Cacheable("indisaOfficeCache")

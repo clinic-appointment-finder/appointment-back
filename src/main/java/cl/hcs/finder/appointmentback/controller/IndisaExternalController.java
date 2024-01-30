@@ -43,7 +43,7 @@ public class IndisaExternalController {
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/appointments")
-        public Mono<IndisaCalendarOutputModel> invokeExternalService(
+        public IndisaCalendarOutputModel invokeExternalService(
                         @Parameter(description = "ID de la Especialidad médica", example = "226", required = true) @RequestParam String codeSpeciality,
                         @Parameter(description = "ID del doctor asociada a la sucursal ", example = "14655", required = true) @RequestParam String codeDoctor,
                         @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office,

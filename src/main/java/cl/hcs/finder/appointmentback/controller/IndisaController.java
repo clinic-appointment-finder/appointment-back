@@ -125,7 +125,7 @@ public class IndisaController {
     }
 
     @PatchMapping("/appointments/{id}/doctors/{doctorId}")
-    public ResponseEntity<HttpStatus> updateTaskProgramActive(@PathVariable Long id, @PathVariable Integer doctorId,
+    public ResponseEntity<HttpStatus> updateDoctorNotify(@PathVariable Long id, @PathVariable Integer doctorId,
             @RequestBody Map<String, Boolean> requestBody) {
         boolean isNotify = requestBody.get("isNotify");
         int cantUpdate = appointmentDoctorService.updateAppointmentDoctorNotify(id, doctorId, isNotify);

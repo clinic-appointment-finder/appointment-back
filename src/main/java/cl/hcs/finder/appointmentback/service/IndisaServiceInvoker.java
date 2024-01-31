@@ -25,7 +25,6 @@ import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
 import cl.hcs.finder.appointmentback.model.MedicalAgreementModel;
-import reactor.core.publisher.Mono;
 
 @Service
 public class IndisaServiceInvoker {

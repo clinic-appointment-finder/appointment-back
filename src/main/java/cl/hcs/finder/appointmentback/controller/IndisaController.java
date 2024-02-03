@@ -89,7 +89,7 @@ public class IndisaController {
     public ResponseEntity<List<TaskProgramOutputModel>> findAllTaskProgram(
             @Parameter(description = "Paginación -> Número de página", example = "0", required = true) @RequestParam Integer page,
             @Parameter(description = "Paginación -> cantidad de registros por página", example = "5", required = true) @RequestParam Integer size,
-            @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", required =  false) @RequestParam(required = false) Boolean isTaskValidate,
+            @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", required = false) @RequestParam(required = false) Boolean isTaskValidate,
             @Parameter(description = "hay un flag en BD que indica si es una tarea activa", example = "true", allowEmptyValue = true) @RequestParam(required = false) Boolean isActive,
             @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true) @RequestParam(required = false) String office) {
         if (page == null || size == null) {
@@ -106,7 +106,8 @@ public class IndisaController {
         Optional<TaskProgram> taskProgram = taskProgramService.FindByID(id);
 
         if (taskProgram.isPresent()) {
-            List<TaskProgramOutputModel> resultList = transformEntityToOutput(Collections.singletonList(taskProgram.get()));
+            List<TaskProgramOutputModel> resultList = transformEntityToOutput(
+                    Collections.singletonList(taskProgram.get()));
             return new ResponseEntity<>(resultList.isEmpty() ? "{}" : resultList.get(0), HttpStatus.OK);
         }
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -186,14 +187,14 @@ public class IndisaController {
                     medicalAgreementModel.whith());
             if (matchingDoctor != null) {
                 doctorsList.add(new DoctorAppointmentOutputModel(doctor.getAppointmentFoundId(), doctor.getDoctorId(),
-                        doctor.isNotify(), doctor.getTaskProgram(), matchingDoctor.name(), matchingDoctor.urlImage(),
+                        doctor.isNotify(), matchingDoctor.name(), matchingDoctor.urlImage(),
                         true));
             } else {
                 matchingDoctor = findMatchingDoctor(doctor.getDoctorId().toString(), medicalAgreementModel.whithout());
                 if (matchingDoctor != null) {
                     doctorsList
                             .add(new DoctorAppointmentOutputModel(doctor.getAppointmentFoundId(), doctor.getDoctorId(),
-                                    doctor.isNotify(), doctor.getTaskProgram(), matchingDoctor.name(),
+                                    doctor.isNotify(), matchingDoctor.name(),
                                     matchingDoctor.urlImage(), false));
                 }
             }

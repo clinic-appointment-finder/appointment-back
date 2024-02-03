@@ -9,7 +9,7 @@
         <appender-ref ref="console"/>
     </root>
 
-    <logger name="org.hibernate.SQL" level="DEBUG"/>
+    <logger name="org.hibernate.SQL" level="INFO"/>
     <logger name="org.hibernate.type.descriptor.sql.BasicBinder" level="INFO"/>
     <logger name="org.hibernate.type.descriptor.sql.BasicExtractor" level="INFO"/>
 </configuration>

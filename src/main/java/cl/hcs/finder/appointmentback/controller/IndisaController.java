@@ -73,7 +73,6 @@ public class IndisaController {
                     "  \"doctors_ids\": [14655, 12375],\n" + //
                     "  \"office\": \"PROVIDENCIA\",\n" + //
                     "  \"emails\": [\"email1@example.com\", \"email2@example.com\"]}", required = true) @RequestBody IndisaAppointmentInputModel inputModel) {
-
         TaskProgram createdTaskProgram = taskProgramService.createTaskProgram(inputModel);
         return new ResponseEntity<>(createdTaskProgram, HttpStatus.CREATED);
     }
@@ -99,8 +98,16 @@ public class IndisaController {
         return new ResponseEntity<>(transformEntityToOutput(pageTask.getContent()), HttpStatus.OK);
     }
 
+    @Operation(summary = "Buscar la tarea programada por ID", description = "Buscar la tarea programada por ID único de la base de datos")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", content = {
+                    @Content(schema = @Schema(implementation = TaskProgramOutputModel.class), mediaType = "application/json") }),
+            @ApiResponse(responseCode = "400", content = { @Content(schema = @Schema()) }),
+            @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
+            @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @GetMapping("/appointments/{id}")
-    public ResponseEntity<?> getTaskProgramById(@PathVariable Long id) {
+    public ResponseEntity<?> getTaskProgramById(
+        @Parameter(description = "Identificador único de la tarea", example = "0", required = true) @PathVariable Long id) {
         if (id == null)
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         Optional<TaskProgram> taskProgram = taskProgramService.FindByID(id);

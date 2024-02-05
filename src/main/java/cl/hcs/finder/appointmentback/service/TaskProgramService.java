@@ -4,7 +4,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -60,42 +62,72 @@ public class TaskProgramService {
         // Construir las especificaciones de búsqueda
         Specification<TaskProgram> spec = Specification.where(null);
         if (isActive != null) {
-            spec = spec.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.equal(root.get("active"), isActive));
+            spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("active"), isActive));
         }
         if (office != null && !office.isEmpty()) {
-            spec = spec.and((root, query, criteriaBuilder) ->
-                    criteriaBuilder.equal(root.get("officeName"), office));
+            spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("officeName"), office));
         }
         if (isTaskValidate != null) {
             if (isTaskValidate) {
                 // Si es true, la fecha actual debe estar entre la fecha desde y hasta
-                spec = spec.and((root, query, criteriaBuilder) ->
-                        criteriaBuilder.and(
-                                criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), LocalDate.now()),
-                                criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), LocalDate.now())
-                        )
-                );
+                spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.and(
+                        criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), LocalDate.now()),
+                        criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), LocalDate.now())));
             } else {
                 // Si es false, la fecha actual NO debe estar entre la fecha desde y hasta
-                spec = spec.and((root, query, criteriaBuilder) ->
-                        criteriaBuilder.or(
-                                criteriaBuilder.lessThan(root.get("endDate"), LocalDate.now()),
-                                criteriaBuilder.greaterThan(root.get("startDate"), LocalDate.now())
-                        )
-                );
+                spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.or(
+                        criteriaBuilder.lessThan(root.get("endDate"), LocalDate.now()),
+                        criteriaBuilder.greaterThan(root.get("startDate"), LocalDate.now())));
             }
-        }        
-        return taskProgramRepository.findAll(spec, pageable);
+        }
+        Page<TaskProgram> taskPrograms = taskProgramRepository.findAll(spec, pageable);
+
+        // Obfuscate emails in the emails list
+        taskPrograms.getContent().forEach(this::obfuscateEmails);
+
+        return taskPrograms;
     }
 
     public Optional<TaskProgram> FindByID(@NonNull Long id) {
-        return taskProgramRepository.findById(id);
+        Optional<TaskProgram> tOptional = taskProgramRepository.findById(id);        
+        if (tOptional.isPresent()) {
+           obfuscateEmails(tOptional.get());  
+        } 
+        return tOptional;
     }
 
     @Transactional
     public int updateTaskProgramActive(Long id, boolean active) {
         return taskProgramRepository.updateTaskProgramActive(id, active);
+    }
+
+    private void obfuscateEmails(TaskProgram taskProgram) {
+        List<String> obfuscatedEmails = taskProgram.getEmails().stream()
+                .map(email -> obfuscateEmail(email))
+                .collect(Collectors.toList());
+
+        taskProgram.setEmails(obfuscatedEmails);
+    }
+
+    private String obfuscateEmail(String email) {
+        if (email == null || email.isEmpty()) {
+            return email;
+        }
+
+        int atIndex = email.indexOf('@');
+        if (atIndex > 0) {
+            String prefix = email.substring(0, atIndex);
+            String domain = email.substring(atIndex);
+
+            if (prefix.length() >= 6) {
+                return prefix.substring(0, 2) + "xxx" + prefix.substring(prefix.length() - 2, prefix.length())
+                        + domain;
+            } else {
+                return prefix.substring(0, 1) + "xxx" + prefix.substring(prefix.length() - 1, prefix.length())
+                        + domain;
+            }
+        }
+        return email;
     }
 
 }

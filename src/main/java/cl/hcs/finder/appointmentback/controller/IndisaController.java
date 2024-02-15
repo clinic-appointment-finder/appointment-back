@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import cl.hcs.finder.appointmentback.entity.AppointmentFound;
+import cl.hcs.finder.appointmentback.entity.Clinic;
 import cl.hcs.finder.appointmentback.entity.TaskProgram;
 import cl.hcs.finder.appointmentback.model.DoctorAppointmentOutputModel;
 import cl.hcs.finder.appointmentback.model.GenericOutputModel;
@@ -95,12 +96,12 @@ public class IndisaController {
             @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true) @RequestParam(required = false) String office,
             @Parameter(description = "TRUE para ofuscar el correo (default) y FALSE para mostrar correo completo", example = "true", allowEmptyValue = true) @RequestParam(required = false, defaultValue = "true") Boolean obfuscateMail) {
         if (page == null || size == null) {
-            return Mono.just(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
+            return Mono.just(ResponseEntity.badRequest().build());
         }
         return taskProgramService.FindAll(page, size, isTaskValidate, isActive, office, obfuscateMail)
                 .flatMap(pageTask -> {
                     return transformEntityToOutput(pageTask.getContent())
-                            .map(outputModels -> ResponseEntity.ok(outputModels))
+                            .map(ResponseEntity::ok)
                             .defaultIfEmpty(ResponseEntity.notFound().build());
                 })
                 .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
@@ -115,12 +116,16 @@ public class IndisaController {
             @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
             @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @GetMapping("/appointments/{id}")
-    public Mono<ResponseEntity<?>> getTaskProgramById(
-            @Parameter(description = "Identificador único de la tarea", example = "0", required = true) @PathVariable Long id) {
+    public Mono<ResponseEntity<TaskProgramOutputModel>> getTaskProgramById(@PathVariable Long id) {
         if (id == null)
             return Mono.just(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
 
         return taskProgramService.FindByID(id)
+                .flatMap(taskProgram -> {
+                    return transformEntityToOutput(Collections.singletonList(taskProgram))
+                            .map(outputModel -> ResponseEntity.ok(outputModel.get(0)))
+                            .defaultIfEmpty(ResponseEntity.notFound().build());
+                })
                 .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
                 .onErrorResume(error -> Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()));
     }
@@ -156,14 +161,9 @@ public class IndisaController {
     private Mono<List<TaskProgramOutputModel>> transformEntityToOutput(List<TaskProgram> programs) {
         return Flux.fromIterable(programs)
                 .flatMap(taskProgram -> {
-                    System.out.println("--->taskProgram " + taskProgram.getSpecialityId());
-
-                    // Llamar a invokeIndisaSpeciality de forma reactiva y manejar el resultado
-                    return indisaServiceInvoker
-                            .invokeIndisaSpeciality(taskProgram.getPrevisionId().toString(),
-                                    taskProgram.getOfficeName())
+                    return indisaServiceInvoker.invokeIndisaSpeciality(taskProgram.getPrevisionId().toString(),
+                            taskProgram.getOfficeName())
                             .flatMapMany(specialities -> {
-                                // Obtener las previsualizaciones y los médicos de forma reactiva
                                 Mono<List<GenericOutputModel>> previsionListMono = indisaServiceInvoker
                                         .invokeIndisaPrevision().collectList();
                                 Mono<MedicalAgreementModel> doctorsMono = indisaServiceInvoker.invokeIndisaDoctors(
@@ -171,8 +171,6 @@ public class IndisaController {
                                         taskProgram.getOfficeName(),
                                         taskProgram.getSpecialityId().toString());
 
-                                // Combinar los resultados de las llamadas reactivas y construir el
-                                // TaskProgramOutputModel
                                 return Mono.zip(previsionListMono, doctorsMono)
                                         .flatMapMany(tuple -> {
                                             List<GenericOutputModel> previsionList = tuple.getT1();
@@ -184,9 +182,9 @@ public class IndisaController {
                                             List<DoctorAppointmentOutputModel> doctorsList = transformDoctors(
                                                     taskProgram.getDoctors(), doctors);
 
-                                            TaskProgramOutputModel outputModel = new TaskProgramOutputModel(
+                                            return Flux.just(new TaskProgramOutputModel(
                                                     taskProgram.getTaskProgramId(),
-                                                    taskProgram.getClinic(),
+                                                    new Clinic(1, "Clínica Indisa"),
                                                     doctorsList,
                                                     prevision,
                                                     taskProgram.getStartDate(),
@@ -195,28 +193,28 @@ public class IndisaController {
                                                     speciality,
                                                     taskProgram.getEmails(),
                                                     taskProgram.getCreationDate(),
-                                                    taskProgram.isActive());
-
-                                            return Flux.just(outputModel);
+                                                    taskProgram.isActive()));
                                         });
                             });
                 })
-                .collectList(); // Recopilar todos los resultados en una lista
+                .collectList();
     }
 
     private GenericOutputModel findSpeciality(List<GenericOutputModel> specialities, String specialityId) {
-        return findGenericOutputModelByCode(specialities, specialityId);
+        Optional<GenericOutputModel> matchingSpeciality = specialities.stream()
+                .filter(speciality -> speciality.code().equals(specialityId))
+                .findFirst();
+        return matchingSpeciality.orElse(new GenericOutputModel(specialityId, "")); // Retorna un objeto con solo el
+                                                                                    // código si no se encuentra el
+                                                                                    // nombre
     }
 
     private GenericOutputModel findPrevision(List<GenericOutputModel> previsionList, String previsionId) {
-        return findGenericOutputModelByCode(previsionList, previsionId);
-    }
-
-    private GenericOutputModel findGenericOutputModelByCode(List<GenericOutputModel> models, String code) {
-        Optional<GenericOutputModel> matchingModel = models.stream()
-                .filter(model -> model.code().equals(code))
+        Optional<GenericOutputModel> matchingPrevision = previsionList.stream()
+                .filter(prevision -> prevision.code().equals(previsionId))
                 .findFirst();
-        return matchingModel.orElse(null);
+        return matchingPrevision.orElse(new GenericOutputModel(previsionId, "")); // Retorna un objeto con solo el
+                                                                                  // código si no se encuentra el nombre
     }
 
     private List<DoctorAppointmentOutputModel> transformDoctors(List<AppointmentFound> doctors,
@@ -249,5 +247,4 @@ public class IndisaController {
                 .findFirst();
         return matchingDoctor.orElse(null);
     }
-
 }

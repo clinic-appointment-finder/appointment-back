@@ -91,14 +91,12 @@ public class TaskProgramService {
         return Mono.just(taskPrograms);
     }
 
-    public Mono<ResponseEntity<?>> FindByID(Long id) {
+    public Mono<TaskProgram> FindByID(Long id) {
         return Mono.fromSupplier(() -> taskProgramRepository.findById(id))
-                .flatMap(optional -> optional.map(taskProgram -> {
-                    obfuscateEmails(taskProgram);
-                    return ResponseEntity.ok(taskProgram);
-                }).map(Mono::just)
-                        .orElse(Mono.just(ResponseEntity.notFound().build())));
+                .flatMap(optional -> optional.map(Mono::just)
+                        .orElse(Mono.empty()));
     }
+    
 
     @Transactional
     public Mono<Integer> updateTaskProgramActive(Long id, boolean active) {

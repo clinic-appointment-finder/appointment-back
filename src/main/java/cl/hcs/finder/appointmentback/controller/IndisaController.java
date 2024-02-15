@@ -37,6 +37,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/clinic/indisa")
@@ -85,7 +87,7 @@ public class IndisaController {
             @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
             @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @GetMapping("/appointments")
-    public ResponseEntity<List<TaskProgramOutputModel>> findAllTaskProgram(
+    public Mono<ResponseEntity<List<TaskProgramOutputModel>>> findAllTaskProgram(
             @Parameter(description = "Paginación -> Número de página", example = "0", required = true) @RequestParam Integer page,
             @Parameter(description = "Paginación -> cantidad de registros por página", example = "5", required = true) @RequestParam Integer size,
             @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", required = false) @RequestParam(required = false) Boolean isTaskValidate,
@@ -93,10 +95,16 @@ public class IndisaController {
             @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true) @RequestParam(required = false) String office,
             @Parameter(description = "TRUE para ofuscar el correo (default) y FALSE para mostrar correo completo", example = "true", allowEmptyValue = true) @RequestParam(required = false, defaultValue = "true") Boolean obfuscateMail) {
         if (page == null || size == null) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            return Mono.just(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
         }
-        Page<TaskProgram> pageTask = taskProgramService.FindAll(page, size, isTaskValidate, isActive, office, obfuscateMail);
-        return new ResponseEntity<>(transformEntityToOutput(pageTask.getContent()), HttpStatus.OK);
+        return taskProgramService.FindAll(page, size, isTaskValidate, isActive, office, obfuscateMail)
+                .flatMap(pageTask -> {
+                    return transformEntityToOutput(pageTask.getContent())
+                            .map(outputModels -> ResponseEntity.ok(outputModels))
+                            .defaultIfEmpty(ResponseEntity.notFound().build());
+                })
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
+                .onErrorResume(error -> Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()));
     }
 
     @Operation(summary = "Buscar la tarea programada por ID", description = "Buscar la tarea programada por ID único de la base de datos")
@@ -107,18 +115,14 @@ public class IndisaController {
             @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
             @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @GetMapping("/appointments/{id}")
-    public ResponseEntity<?> getTaskProgramById(
-        @Parameter(description = "Identificador único de la tarea", example = "0", required = true) @PathVariable Long id) {
+    public Mono<ResponseEntity<?>> getTaskProgramById(
+            @Parameter(description = "Identificador único de la tarea", example = "0", required = true) @PathVariable Long id) {
         if (id == null)
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        Optional<TaskProgram> taskProgram = taskProgramService.FindByID(id);
+            return Mono.just(new ResponseEntity<>(HttpStatus.BAD_REQUEST));
 
-        if (taskProgram.isPresent()) {
-            List<TaskProgramOutputModel> resultList = transformEntityToOutput(
-                    Collections.singletonList(taskProgram.get()));
-            return new ResponseEntity<>(resultList.isEmpty() ? "{}" : resultList.get(0), HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        return taskProgramService.FindByID(id)
+                .switchIfEmpty(Mono.just(ResponseEntity.notFound().build()))
+                .onErrorResume(error -> Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()));
     }
 
     @PatchMapping("/appointments/{id}")
@@ -144,32 +148,55 @@ public class IndisaController {
         return new ResponseEntity<>(HttpStatus.NOT_FOUND);
     }
 
-    private List<TaskProgramOutputModel> transformEntityToOutput(List<TaskProgram> programs) {
-        List<TaskProgramOutputModel> returnList = new ArrayList<>();
-        programs.forEach(taskProgram -> {
-            List<GenericOutputModel> specialities = indisaServiceInvoker
-                    .invokeIndisaSpeciality(taskProgram.getPrevisionId().toString(), taskProgram.getOfficeName());
-            List<GenericOutputModel> previsionList = indisaServiceInvoker.invokeIndisaPrevision();
-            List<DoctorAppointmentOutputModel> doctorsList = transformDoctors(taskProgram.getDoctors(),
-                    indisaServiceInvoker.invokeIndisaDoctors(taskProgram.getPrevisionId().toString(),
-                            taskProgram.getOfficeName(), taskProgram.getSpecialityId().toString()));
-            GenericOutputModel speciality = findSpeciality(specialities, taskProgram.getSpecialityId().toString());
-            GenericOutputModel prevision = findPrevision(previsionList, taskProgram.getPrevisionId().toString());
+    private Mono<List<TaskProgramOutputModel>> transformEntityToOutput(List<TaskProgram> programs) {
+        return Flux.fromIterable(programs)
+                .flatMap(taskProgram -> {
+                    System.out.println("--->taskProgram " + taskProgram.getSpecialityId());
 
-            returnList.add(new TaskProgramOutputModel(
-                    taskProgram.getTaskProgramId(),
-                    taskProgram.getClinic(),
-                    doctorsList,
-                    prevision,
-                    taskProgram.getStartDate(),
-                    taskProgram.getEndDate(),
-                    taskProgram.getOfficeName(),
-                    speciality,
-                    taskProgram.getEmails(),
-                    taskProgram.getCreationDate(),
-                    taskProgram.isActive()));
-        });
-        return returnList;
+                    // Llamar a invokeIndisaSpeciality de forma reactiva y manejar el resultado
+                    return indisaServiceInvoker
+                            .invokeIndisaSpeciality(taskProgram.getPrevisionId().toString(),
+                                    taskProgram.getOfficeName())
+                            .flatMapMany(specialities -> {
+                                // Obtener las previsualizaciones y los médicos de forma reactiva
+                                Mono<List<GenericOutputModel>> previsionListMono = indisaServiceInvoker
+                                        .invokeIndisaPrevision().collectList();
+                                Mono<MedicalAgreementModel> doctorsMono = indisaServiceInvoker.invokeIndisaDoctors(
+                                        taskProgram.getPrevisionId().toString(),
+                                        taskProgram.getOfficeName(),
+                                        taskProgram.getSpecialityId().toString());
+
+                                // Combinar los resultados de las llamadas reactivas y construir el
+                                // TaskProgramOutputModel
+                                return Mono.zip(previsionListMono, doctorsMono)
+                                        .flatMapMany(tuple -> {
+                                            List<GenericOutputModel> previsionList = tuple.getT1();
+                                            MedicalAgreementModel doctors = tuple.getT2();
+                                            GenericOutputModel speciality = findSpeciality(specialities,
+                                                    taskProgram.getSpecialityId().toString());
+                                            GenericOutputModel prevision = findPrevision(previsionList,
+                                                    taskProgram.getPrevisionId().toString());
+                                            List<DoctorAppointmentOutputModel> doctorsList = transformDoctors(
+                                                    taskProgram.getDoctors(), doctors);
+
+                                            TaskProgramOutputModel outputModel = new TaskProgramOutputModel(
+                                                    taskProgram.getTaskProgramId(),
+                                                    taskProgram.getClinic(),
+                                                    doctorsList,
+                                                    prevision,
+                                                    taskProgram.getStartDate(),
+                                                    taskProgram.getEndDate(),
+                                                    taskProgram.getOfficeName(),
+                                                    speciality,
+                                                    taskProgram.getEmails(),
+                                                    taskProgram.getCreationDate(),
+                                                    taskProgram.isActive());
+
+                                            return Flux.just(outputModel);
+                                        });
+                            });
+                })
+                .collectList(); // Recopilar todos los resultados en una lista
     }
 
     private GenericOutputModel findSpeciality(List<GenericOutputModel> specialities, String specialityId) {

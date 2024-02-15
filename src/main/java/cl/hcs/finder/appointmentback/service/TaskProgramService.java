@@ -14,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.http.ResponseEntity;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +24,7 @@ import cl.hcs.finder.appointmentback.entity.TaskProgram;
 import cl.hcs.finder.appointmentback.model.IndisaAppointmentInputModel;
 import cl.hcs.finder.appointmentback.repository.TaskProgramRepository;
 import jakarta.transaction.Transactional;
+import reactor.core.publisher.Mono;
 
 @Service
 public class TaskProgramService {
@@ -57,7 +59,8 @@ public class TaskProgramService {
         return taskProgramRepository.save(taskProgram);
     }
 
-    public Page<TaskProgram> FindAll(int page, int size, Boolean isTaskValidate, Boolean isActive, String office, Boolean obfuscateMail) {
+    public Mono<Page<TaskProgram>> FindAll(int page, int size, Boolean isTaskValidate, Boolean isActive, String office,
+            Boolean obfuscateMail) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "creationDate"));
         // Construir las especificaciones de búsqueda
         Specification<TaskProgram> spec = Specification.where(null);
@@ -82,17 +85,19 @@ public class TaskProgramService {
         }
         Page<TaskProgram> taskPrograms = taskProgramRepository.findAll(spec, pageable);
 
-        if (obfuscateMail) taskPrograms.getContent().forEach(this::obfuscateEmails);
+        if (obfuscateMail)
+            taskPrograms.getContent().forEach(this::obfuscateEmails);
 
-        return taskPrograms;
+        return Mono.just(taskPrograms);
     }
 
-    public Optional<TaskProgram> FindByID(@NonNull Long id) {
-        Optional<TaskProgram> tOptional = taskProgramRepository.findById(id);        
-        if (tOptional.isPresent()) {
-           obfuscateEmails(tOptional.get());  
-        } 
-        return tOptional;
+    public Mono<ResponseEntity<?>> FindByID(Long id) {
+        return Mono.fromSupplier(() -> taskProgramRepository.findById(id))
+                .flatMap(optional -> optional.map(taskProgram -> {
+                    obfuscateEmails(taskProgram);
+                    return ResponseEntity.ok(taskProgram);
+                }).map(Mono::just)
+                .orElse(Mono.just(ResponseEntity.notFound().build())));
     }
 
     @Transactional

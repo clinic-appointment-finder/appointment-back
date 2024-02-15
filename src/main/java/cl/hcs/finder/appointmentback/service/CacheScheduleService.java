@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.fasterxml.jackson.databind.JsonNode;
 
 import cl.hcs.finder.appointmentback.common.Helper;
+import reactor.core.publisher.Mono;
 
 @Service
 public class CacheScheduleService {
@@ -37,13 +38,12 @@ public class CacheScheduleService {
     }
 
     @Cacheable(value = "indisaScheduleCache", key = "#codePrevision")
-    public String invokeIndisaSchedule(String codePrevision) {
+    public Mono<String> invokeIndisaSchedule(String codePrevision) {
         String requestBody = String.format("medical_insurance=%s&cod_paciente=%s", codePrevision, indisaApirut);
 
-        log.info("Making request to Indisa API. Schedule -> RequestBody: {}",
-                requestBody);
+        log.info("Making request to Indisa API. Schedule -> RequestBody: {}", requestBody);
 
-        JsonNode result = webClient.post()
+        return webClient.post()
                 .uri(String.format("%s/%s", pathSchedule, indisaApirut))
                 .header("Accept", "*/*")
                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
@@ -51,10 +51,7 @@ public class CacheScheduleService {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
-                .block();
-
-        // log.info("agenda result {}", result);
-        return result.get("agenda_id").asText();
+                .map(result -> result.get("agenda_id").asText());
     }
 
     @CacheEvict(value = "indisaScheduleCache", allEntries = true)

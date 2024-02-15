@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/api/v1/clinic/indisa/external")
@@ -63,7 +64,7 @@ public class IndisaExternalController {
         public ResponseEntity<List<String>> invokeExternalServiceOffice(
                         @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision) {
                 List<String> result = externalServiceInvoker
-                                .invokeIndisaOffice(codePrevision);
+                                .invokeIndisaOffice(codePrevision).block();
                 if (result.isEmpty())
                         new ResponseEntity<>(HttpStatus.NOT_FOUND);
                 return new ResponseEntity<>(result, HttpStatus.OK);
@@ -76,12 +77,20 @@ public class IndisaExternalController {
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/prevision")
-        public ResponseEntity<List<GenericOutputModel>> invokeExternalServicePrevision() {
-                List<GenericOutputModel> result = externalServiceInvoker
-                                .invokeIndisaPrevision();
-                if (result.isEmpty())
-                        new ResponseEntity<>(HttpStatus.NOT_FOUND);
-                return new ResponseEntity<>(result, HttpStatus.OK);
+        public Mono<ResponseEntity<?>> invokeExternalServicePrevision() {
+                return externalServiceInvoker.invokeIndisaPrevision()
+                                .collectList()
+                                .flatMap(result -> {
+                                        if (result.isEmpty()) {
+                                                return Mono.just(ResponseEntity.notFound().build());
+                                        } else {
+                                                return Mono.just(ResponseEntity.ok(result));
+                                        }
+                                })
+                                .switchIfEmpty(Mono
+                                                .just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()))
+                                .onErrorResume(error -> Mono
+                                                .just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()));
         }
 
         @Operation(summary = "lista de especialidades", description = "traer todas las especialidades de la clínica Indisa por sucursal y previsión")
@@ -96,12 +105,17 @@ public class IndisaExternalController {
                         @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision,
                         @Parameter(description = "Nombre de la sucursal", example = "PROVIDENCIA", required = true) @RequestParam String office) {
                 if (office == null || codePrevision == null)
-                        new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-                List<GenericOutputModel> result = externalServiceInvoker
-                                .invokeIndisaSpeciality(codePrevision, office);
-                if (result.isEmpty())
-                        new ResponseEntity<>(HttpStatus.NOT_FOUND);
-                return new ResponseEntity<>(result, HttpStatus.OK);
+                        return ResponseEntity.badRequest().build();
+
+                Mono<List<GenericOutputModel>> resultMono = externalServiceInvoker.invokeIndisaSpeciality(codePrevision,
+                                office);
+
+                List<GenericOutputModel> result = resultMono.block();
+                if (result.isEmpty()) {
+                        return ResponseEntity.notFound().build();
+                } else {
+                        return ResponseEntity.ok(result);
+                }
         }
 
         @Operation(summary = "lista de los médicos", description = "traer los médicos de la clínica Indisa por sucursal, previsión y especialidad")
@@ -119,7 +133,7 @@ public class IndisaExternalController {
                 if (office == null || codePrevision == null || codeSpeciality == null)
                         new ResponseEntity<>(HttpStatus.BAD_REQUEST);
                 MedicalAgreementModel result = externalServiceInvoker
-                                .invokeIndisaDoctors(codePrevision, office, codeSpeciality);
+                                .invokeIndisaDoctors(codePrevision, office, codeSpeciality).block();
                 if (result.whith().isEmpty() && result.whithout().isEmpty())
                         new ResponseEntity<>(HttpStatus.NOT_FOUND);
                 return new ResponseEntity<>(result, HttpStatus.OK);

@@ -25,6 +25,8 @@ import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
 import cl.hcs.finder.appointmentback.model.MedicalAgreementModel;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Service
 public class IndisaServiceInvoker {
@@ -62,7 +64,6 @@ public class IndisaServiceInvoker {
 
         @Value("${indisa.app.url.path.prevision}")
         private String pathPrevison;
-       
 
         // 10 días en milisegundos
         private static final long TIME_VALIDATE_LONG = 864000000;
@@ -73,7 +74,7 @@ public class IndisaServiceInvoker {
         // 12 horas en milisegundos
         private static final long TIME_VALIDATE_SHORT = 43200000;
 
-         @Autowired
+        @Autowired
         private CacheScheduleService cacheService;
 
         public IndisaServiceInvoker(WebClient.Builder webClientBuilder,
@@ -95,7 +96,8 @@ public class IndisaServiceInvoker {
                                 requestBody);
 
                 return webClient.post()
-                                .uri(indisaUrlApiPathCalendar + "/" + cacheService.invokeIndisaSchedule(input.previsionID()))
+                                .uri(indisaUrlApiPathCalendar + "/"
+                                                + cacheService.invokeIndisaSchedule(input.previsionID()))
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                                 .bodyValue(requestBody)
@@ -104,111 +106,115 @@ public class IndisaServiceInvoker {
         }
 
         @Cacheable("indisaOfficeCache")
-        public List<String> invokeIndisaOffice(String codePrevision) {
+        public Mono<List<String>> invokeIndisaOffice(String codePrevision) {
                 String requestBody = indisaApiCommonBody;
-
-                log.info("Making request to Indisa API. Office -> RequestBody: {}",
-                                requestBody);
-
-                ExternalApiResponseModel result = webClient.post()
-                                .uri(String.format("%s/%s", pathOffice, cacheService.invokeIndisaSchedule(codePrevision)))
-                                .header("Accept", "*/*")
-                                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                                .header("Referer", indisaApiReferer)
-                                .bodyValue(requestBody)
-                                .retrieve()
-                                .bodyToMono(ExternalApiResponseModel.class).block();
-
-                // log.info("result {}", result);
-                String regex = "data-id=\"([^\"]+)\"";
-                Pattern pattern = Pattern.compile(regex);
-                Matcher matcher = pattern.matcher(result.data());
-                List<String> matches = new ArrayList<>();
-
-                while (matcher.find()) {
-                        matches.add(matcher.group(1));
-                }
-                return matches;
+                log.info("Making request to Indisa API. Office -> RequestBody: {}", requestBody);
+                return cacheService.invokeIndisaSchedule(codePrevision)
+                                .flatMap(schedule -> {
+                                        return webClient.post()
+                                                        .uri(String.format("%s/%s", pathOffice, schedule))
+                                                        .header("Accept", "*/*")
+                                                        .header("Content-Type",
+                                                                        "application/x-www-form-urlencoded; charset=UTF-8")
+                                                        .header("Referer", indisaApiReferer)
+                                                        .bodyValue(requestBody)
+                                                        .retrieve()
+                                                        .bodyToMono(ExternalApiResponseModel.class)
+                                                        .map(result -> {
+                                                                String regex = "data-id=\"([^\"]+)\"";
+                                                                Pattern pattern = Pattern.compile(regex);
+                                                                Matcher matcher = pattern.matcher(result.data());
+                                                                List<String> matches = new ArrayList<>();
+                                                                while (matcher.find()) {
+                                                                        matches.add(matcher.group(1));
+                                                                }
+                                                                return matches;
+                                                        });
+                                });
         }
 
         @Cacheable("indisaPrevisionCache")
-        public List<GenericOutputModel> invokeIndisaPrevision() {
-
+        public Flux<GenericOutputModel> invokeIndisaPrevision() {
                 log.info("Making request to Indisa API. Prevision");
-                JsonNode result = webClient.get()
-                                .uri(String.format("%s", pathPrevison))
+
+                return webClient.get()
+                                .uri(pathPrevison)
                                 .header("Accept", "*/*")
                                 .header("Content-Type", "application/json")
                                 .header("Referer", indisaApiReferer)
                                 .retrieve()
-                                .bodyToMono(JsonNode.class)
-                                .block();
+                                .bodyToFlux(JsonNode.class)
+                                .flatMap(result -> {
+                                        if (result != null && result.get("data").isArray()) {
+                                                Iterator<JsonNode> elements = result.get("data").elements();
+                                                List<GenericOutputModel> outputModels = new ArrayList<>();
 
-                // log.info("agenda result {}", result);
-
-                List<GenericOutputModel> outputModels = new ArrayList<>();
-
-                // Verifica si "data" es un array
-                if (result != null && result.get("data").isArray()) {
-                        Iterator<JsonNode> elements = result.get("data").elements();
-
-                        // Itera sobre los elementos del array y mapea cada elemento a un
-                        // GenericOutputModel
-                        while (elements.hasNext()) {
-                                JsonNode element = elements.next();
-                                GenericOutputModel outputModel = new ObjectMapper().convertValue(element,
-                                                GenericOutputModel.class);
-                                outputModels.add(outputModel);
-                        }
-                }
-
-                return outputModels;
+                                                while (elements.hasNext()) {
+                                                        JsonNode element = elements.next();
+                                                        GenericOutputModel outputModel = new ObjectMapper()
+                                                                        .convertValue(element,
+                                                                                        GenericOutputModel.class);
+                                                        outputModels.add(outputModel);
+                                                }
+                                                return Flux.fromIterable(outputModels);
+                                        } else {
+                                                return Flux.empty();
+                                        }
+                                });
         }
 
         @Cacheable("indisaSpecialityCache")
-        public List<GenericOutputModel> invokeIndisaSpeciality(String codePrevision, String office) {
+        public Mono<List<GenericOutputModel>> invokeIndisaSpeciality(String codePrevision, String office) {
                 String requestBody = indisaApiCommonBody.replace("isapre=", "isapre=" + codePrevision)
                                 .replace("office_id=", "office_id=" + office);
-
+                System.out.println("pathSpecialitypathSpecialitypathSpecialitypathSpecialitypathSpeciality"
+                                + pathSpeciality);
                 log.info("Making request to Indisa API. Speciality -> RequestBody: {}",
                                 requestBody);
-                JsonNode result = webClient.post()
-                                .uri(String.format("%s/%s", pathSpeciality, cacheService.invokeIndisaSchedule(codePrevision)))
-                                .header("Accept", "*/*")
-                                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                                .header("Referer", indisaApiReferer)
-                                .bodyValue(requestBody)
-                                .retrieve()
-                                .bodyToMono(JsonNode.class)
-                                .block();
+                // Invocar a cacheService.invokeIndisaSchedule(codePrevision) y continuar de
+                // forma reactiva
+                return cacheService.invokeIndisaSchedule(codePrevision)
+                                .flatMap(schedule -> {
+                                        log.info("Schedule ID: " + schedule);
+                                        // Realizar la llamada a la API de Indisa de forma reactiva
+                                        return webClient.post()
+                                                        .uri(String.format("%s/%s", pathSpeciality, schedule))
+                                                        .header("Accept", "*/*")
+                                                        .header("Content-Type",
+                                                                        "application/x-www-form-urlencoded; charset=UTF-8")
+                                                        .header("Referer", indisaApiReferer)
+                                                        .bodyValue(requestBody)
+                                                        .retrieve()
+                                                        .bodyToMono(JsonNode.class)
+                                                        .map(result -> extractSpecialities(
+                                                                        result.get("data").asText()));
+                                });
 
-                // log.info("agenda result {}", result);
-                return extractSpecialities(result.get("data").asText());
         }
 
         @Cacheable("indisaDoctorsCache")
-        public MedicalAgreementModel invokeIndisaDoctors(String codePrevision, String office,
+        public Mono<MedicalAgreementModel> invokeIndisaDoctors(String codePrevision, String office,
                         String codeSpeciality) {
                 String requestBody = indisaApiCommonBody.replace("isapre=", "isapre=" + codePrevision)
                                 .replace("office_id=", "office_id=" + office)
                                 .replace("spec_id=", "spec_id=" + codeSpeciality);
 
-                log.info("Making request to Indisa API. Doctors -> RequestBody: {}",
-                                requestBody);
-                JsonNode result = webClient.post()
-                                .uri(String.format("%s/%s", pathDoctors, cacheService.invokeIndisaSchedule(codePrevision)))
-                                .header("Accept", "*/*")
-                                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                                .header("Referer", indisaApiReferer)
-                                .bodyValue(requestBody)
-                                .retrieve()
-                                .bodyToMono(JsonNode.class)
-                                .block();
+                log.info("Making request to Indisa API. Doctors -> RequestBody: {}", requestBody);
 
-                // log.info("agenda result {}", result);
-                return extractMedicos(result.get("data").asText());
+                return cacheService.invokeIndisaSchedule(codePrevision)
+                                .flatMap(schedule -> {
+                                        return webClient.post()
+                                                        .uri(String.format("%s/%s", pathDoctors, schedule))
+                                                        .header("Accept", "*/*")
+                                                        .header("Content-Type",
+                                                                        "application/x-www-form-urlencoded; charset=UTF-8")
+                                                        .header("Referer", indisaApiReferer)
+                                                        .bodyValue(requestBody)
+                                                        .retrieve()
+                                                        .bodyToMono(JsonNode.class)
+                                                        .map(result -> extractMedicos(result.get("data").asText()));
+                                });
         }
-       
 
         @CacheEvict(value = "indisaOfficeCache", allEntries = true)
         @Scheduled(fixedRate = TIME_VALIDATE_LONG)
@@ -275,7 +281,7 @@ public class IndisaServiceInvoker {
                         MedicalAgreementModel.DoctorModel medico = new MedicalAgreementModel.DoctorModel(code, name,
                                         imageUrl, haveSchedule);
 
-                        // log.info("tiene convenio: " + tieneConvenio);  
+                        // log.info("tiene convenio: " + tieneConvenio);
                         if (tieneConvenio) {
                                 whithList.add(medico);
                         } else {

@@ -90,11 +90,12 @@ public class IndisaController {
             @Parameter(description = "Paginación -> cantidad de registros por página", example = "5", required = true) @RequestParam Integer size,
             @Parameter(description = "es una tarea válida, cuando la fecha actual esta entre la fecha desde y fecha hasta", example = "true", required = false) @RequestParam(required = false) Boolean isTaskValidate,
             @Parameter(description = "hay un flag en BD que indica si es una tarea activa", example = "true", allowEmptyValue = true) @RequestParam(required = false) Boolean isActive,
-            @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true) @RequestParam(required = false) String office) {
+            @Parameter(description = "Sucursal de la clínica", example = "MAIPU", allowEmptyValue = true) @RequestParam(required = false) String office,
+            @Parameter(description = "TRUE para ofuscar el correo (default) y FALSE para mostrar correo completo", example = "true", allowEmptyValue = true) @RequestParam(required = false, defaultValue = "true") Boolean obfuscateMail) {
         if (page == null || size == null) {
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         }
-        Page<TaskProgram> pageTask = taskProgramService.FindAll(page, size, isTaskValidate, isActive, office);
+        Page<TaskProgram> pageTask = taskProgramService.FindAll(page, size, isTaskValidate, isActive, office, obfuscateMail);
         return new ResponseEntity<>(transformEntityToOutput(pageTask.getContent()), HttpStatus.OK);
     }
 

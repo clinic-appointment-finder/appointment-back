@@ -57,7 +57,7 @@ public class TaskProgramService {
         return taskProgramRepository.save(taskProgram);
     }
 
-    public Page<TaskProgram> FindAll(int page, int size, Boolean isTaskValidate, Boolean isActive, String office) {
+    public Page<TaskProgram> FindAll(int page, int size, Boolean isTaskValidate, Boolean isActive, String office, Boolean obfuscateMail) {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "creationDate"));
         // Construir las especificaciones de búsqueda
         Specification<TaskProgram> spec = Specification.where(null);
@@ -82,8 +82,7 @@ public class TaskProgramService {
         }
         Page<TaskProgram> taskPrograms = taskProgramRepository.findAll(spec, pageable);
 
-        // Obfuscate emails in the emails list
-        taskPrograms.getContent().forEach(this::obfuscateEmails);
+        if (obfuscateMail) taskPrograms.getContent().forEach(this::obfuscateEmails);
 
         return taskPrograms;
     }

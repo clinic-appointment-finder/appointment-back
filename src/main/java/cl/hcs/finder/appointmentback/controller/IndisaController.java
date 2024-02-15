@@ -67,7 +67,7 @@ public class IndisaController {
                     @Content(schema = @Schema(implementation = TaskProgram.class), mediaType = "application/json") }),
             @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
     @PostMapping("/appointments")
-    public ResponseEntity<TaskProgram> createTaskProgram(
+    public Mono<ResponseEntity<TaskProgram>> createTaskProgram(
             @Schema(description = "Input body para crear una tarea", example = "{\"prevision_id\": 67,\n" + //
                     "  \"start_date\": \"2024-01-15\",\n" + //
                     "  \"end_date\": \"2024-01-20\",\n" + //
@@ -75,8 +75,8 @@ public class IndisaController {
                     "  \"doctors_ids\": [14655, 12375],\n" + //
                     "  \"office\": \"PROVIDENCIA\",\n" + //
                     "  \"emails\": [\"email1@example.com\", \"email2@example.com\"]}", required = true) @RequestBody IndisaAppointmentInputModel inputModel) {
-        TaskProgram createdTaskProgram = taskProgramService.createTaskProgram(inputModel);
-        return new ResponseEntity<>(createdTaskProgram, HttpStatus.CREATED);
+        return taskProgramService.createTaskProgram(inputModel)
+                .map(createdTaskProgram -> ResponseEntity.status(HttpStatus.CREATED).body(createdTaskProgram));
     }
 
     @Operation(summary = "Buscar los programas", description = "trae todos las tareas programadas existentes en la base de datos con paginación")
@@ -126,26 +126,31 @@ public class IndisaController {
     }
 
     @PatchMapping("/appointments/{id}")
-    public ResponseEntity<TaskProgram> updateTaskProgramActive(@PathVariable Long id,
+    public Mono<ResponseEntity<Void>> updateTaskProgramActive(@PathVariable Long id,
             @RequestBody Map<String, Boolean> requestBody) {
-        boolean isActive = requestBody.get("isActive");
-        int cantUpdate = taskProgramService.updateTaskProgramActive(id, isActive);
-
-        if (cantUpdate == 1) {
-            return new ResponseEntity<>(HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        boolean isActive = requestBody.getOrDefault("isActive", false);
+        return taskProgramService.updateTaskProgramActive(id, isActive)
+                .map(cantUpdate -> {
+                    if (cantUpdate == 1) {
+                        return ResponseEntity.ok().build();
+                    } else {
+                        return ResponseEntity.notFound().build();
+                    }
+                });
     }
 
     @PatchMapping("/appointments/{id}/doctors/{doctorId}")
-    public ResponseEntity<HttpStatus> updateDoctorNotify(@PathVariable Long id, @PathVariable Integer doctorId,
+    public Mono<ResponseEntity<HttpStatus>> updateDoctorNotify(@PathVariable Long id, @PathVariable Integer doctorId,
             @RequestBody Map<String, Boolean> requestBody) {
-        boolean isNotify = requestBody.get("isNotify");
-        int cantUpdate = appointmentDoctorService.updateAppointmentDoctorNotify(id, doctorId, isNotify);
-        if (cantUpdate == 1) {
-            return new ResponseEntity<>(HttpStatus.OK);
-        }
-        return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        boolean isNotify = requestBody.getOrDefault("isNotify", false);
+        return appointmentDoctorService.updateAppointmentDoctorNotify(id, doctorId, isNotify)
+                .map(cantUpdate -> {
+                    if (cantUpdate == 1) {
+                        return ResponseEntity.ok().build();
+                    } else {
+                        return ResponseEntity.notFound().build();
+                    }
+                });
     }
 
     private Mono<List<TaskProgramOutputModel>> transformEntityToOutput(List<TaskProgram> programs) {

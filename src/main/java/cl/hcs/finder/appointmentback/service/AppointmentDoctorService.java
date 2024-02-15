@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 
 import cl.hcs.finder.appointmentback.repository.AppointmentRepository;
 import jakarta.transaction.Transactional;
+import reactor.core.publisher.Mono;
 
 @Service
 public class AppointmentDoctorService {
@@ -17,8 +18,9 @@ public class AppointmentDoctorService {
     }
 
     @Transactional
-    public int updateAppointmentDoctorNotify(Long taskProgramId, Integer doctorId, boolean isNotify) {
-        return appointmentRepository.updateAppointmentDoctorNotify(taskProgramId, doctorId, isNotify);
+    public Mono<Integer> updateAppointmentDoctorNotify(Long taskProgramId, Integer doctorId, boolean isNotify) {
+        return Mono.fromCallable(
+                () -> appointmentRepository.updateAppointmentDoctorNotify(taskProgramId, doctorId, isNotify));
     }
 
 }

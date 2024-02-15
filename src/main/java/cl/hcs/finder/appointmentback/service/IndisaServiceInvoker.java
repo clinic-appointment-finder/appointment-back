@@ -86,23 +86,23 @@ public class IndisaServiceInvoker {
                                 .build();
         }
 
-        public IndisaCalendarOutputModel invokeIndisaCalendar(IndisaCalendarInputModel input) {
+        public Mono<IndisaCalendarOutputModel> invokeIndisaCalendar(IndisaCalendarInputModel input) {
                 String requestBody = indisaApiCalendarBody
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.specialityID())
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.doctorID())
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.office());
 
-                log.info("Making request to Indisa API. Calendar ->  RequestBody: {}",
-                                requestBody);
+                log.info("Making request to Indisa API. Calendar ->  RequestBody: {}", requestBody);
 
-                return webClient.post()
-                                .uri(indisaUrlApiPathCalendar + "/"
-                                                + cacheService.invokeIndisaSchedule(input.previsionID()))
-                                .header("Accept", "*/*")
-                                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                                .bodyValue(requestBody)
-                                .retrieve()
-                                .bodyToMono(IndisaCalendarOutputModel.class).block();
+                return cacheService.invokeIndisaSchedule(input.previsionID())
+                                .flatMap(schedule -> webClient.post()
+                                                .uri(indisaUrlApiPathCalendar + "/" + schedule)
+                                                .header("Accept", "*/*")
+                                                .header("Content-Type",
+                                                                "application/x-www-form-urlencoded; charset=UTF-8")
+                                                .bodyValue(requestBody)
+                                                .retrieve()
+                                                .bodyToMono(IndisaCalendarOutputModel.class));
         }
 
         @Cacheable("indisaOfficeCache")

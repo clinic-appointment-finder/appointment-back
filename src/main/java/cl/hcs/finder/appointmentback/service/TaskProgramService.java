@@ -36,7 +36,7 @@ public class TaskProgramService {
         this.taskProgramRepository = taskProgramRepository;
     }
 
-    public TaskProgram createTaskProgram(IndisaAppointmentInputModel inputModel) {
+    public Mono<TaskProgram> createTaskProgram(IndisaAppointmentInputModel inputModel) {
         TaskProgram taskProgram = new TaskProgram();
         taskProgram.setActive(true);
         taskProgram.setCreationDate(LocalDateTime.now());
@@ -55,8 +55,8 @@ public class TaskProgramService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         taskProgram.setStartDate(LocalDate.parse(inputModel.startDate(), formatter));
         taskProgram.setEndDate(LocalDate.parse(inputModel.endDate(), formatter));
-        // Setear los valores en taskProgram con los valores de inputModel
-        return taskProgramRepository.save(taskProgram);
+        // Guardar el TaskProgram y devolver un Mono
+        return Mono.just(taskProgramRepository.save(taskProgram));
     }
 
     public Mono<Page<TaskProgram>> FindAll(int page, int size, Boolean isTaskValidate, Boolean isActive, String office,
@@ -97,12 +97,12 @@ public class TaskProgramService {
                     obfuscateEmails(taskProgram);
                     return ResponseEntity.ok(taskProgram);
                 }).map(Mono::just)
-                .orElse(Mono.just(ResponseEntity.notFound().build())));
+                        .orElse(Mono.just(ResponseEntity.notFound().build())));
     }
 
     @Transactional
-    public int updateTaskProgramActive(Long id, boolean active) {
-        return taskProgramRepository.updateTaskProgramActive(id, active);
+    public Mono<Integer> updateTaskProgramActive(Long id, boolean active) {
+        return Mono.fromCallable(() -> taskProgramRepository.updateTaskProgramActive(id, active));
     }
 
     private void obfuscateEmails(TaskProgram taskProgram) {

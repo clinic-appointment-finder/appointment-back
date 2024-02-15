@@ -43,15 +43,15 @@ public class IndisaExternalController {
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/appointments")
-        public IndisaCalendarOutputModel invokeExternalService(
+        public Mono<ResponseEntity<IndisaCalendarOutputModel>> invokeExternalService(
                         @Parameter(description = "ID de la Especialidad médica", example = "226", required = true) @RequestParam String codeSpeciality,
                         @Parameter(description = "ID del doctor asociada a la sucursal ", example = "14655", required = true) @RequestParam String codeDoctor,
                         @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office,
                         @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision) {
-                return externalServiceInvoker
-                                .invokeIndisaCalendar(
-                                                new IndisaCalendarInputModel(codeSpeciality, codeDoctor, office,
-                                                                codePrevision));
+                return externalServiceInvoker.invokeIndisaCalendar(
+                                new IndisaCalendarInputModel(codeSpeciality, codeDoctor, office, codePrevision))
+                                .map(ResponseEntity::ok)
+                                .defaultIfEmpty(ResponseEntity.notFound().build());
         }
 
         @Operation(summary = "Buscar sucursales", description = "Busca las sucursales disponibles de la clínica Indisa")

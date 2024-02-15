@@ -105,21 +105,21 @@ public class IndisaExternalController {
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/speciality")
-        public ResponseEntity<List<GenericOutputModel>> invokeExternalServiceSpeciality(
+        public Mono<ResponseEntity<List<GenericOutputModel>>> invokeExternalServiceSpeciality(
                         @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision,
                         @Parameter(description = "Nombre de la sucursal", example = "PROVIDENCIA", required = true) @RequestParam String office) {
-                if (office == null || codePrevision == null)
-                        return ResponseEntity.badRequest().build();
-
-                Mono<List<GenericOutputModel>> resultMono = externalServiceInvoker.invokeIndisaSpeciality(codePrevision,
-                                office);
-
-                List<GenericOutputModel> result = resultMono.block();
-                if (result.isEmpty()) {
-                        return ResponseEntity.notFound().build();
-                } else {
-                        return ResponseEntity.ok(result);
+                if (office == null || codePrevision == null) {
+                        return Mono.just(ResponseEntity.badRequest().build());
                 }
+
+                return externalServiceInvoker.invokeIndisaSpeciality(codePrevision, office)
+                                .map(result -> {
+                                        if (result.isEmpty()) {
+                                                return ResponseEntity.notFound().build();
+                                        } else {
+                                                return ResponseEntity.ok(result);
+                                        }
+                                });
         }
 
         @Operation(summary = "lista de los médicos", description = "traer los médicos de la clínica Indisa por sucursal, previsión y especialidad")
@@ -130,17 +130,22 @@ public class IndisaExternalController {
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/doctor")
-        public ResponseEntity<MedicalAgreementModel> invokeExternalServiceDoctors(
+        public Mono<ResponseEntity<MedicalAgreementModel>> invokeExternalServiceDoctors(
                         @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision,
                         @Parameter(description = "Nombre de la sucursal", example = "PROVIDENCIA", required = true) @RequestParam String office,
                         @Parameter(description = "ID de la especialidad", example = "1", required = true) @RequestParam String codeSpeciality) {
-                if (office == null || codePrevision == null || codeSpeciality == null)
-                        new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-                MedicalAgreementModel result = externalServiceInvoker
-                                .invokeIndisaDoctors(codePrevision, office, codeSpeciality).block();
-                if (result.whith().isEmpty() && result.whithout().isEmpty())
-                        new ResponseEntity<>(HttpStatus.NOT_FOUND);
-                return new ResponseEntity<>(result, HttpStatus.OK);
+                if (office == null || codePrevision == null || codeSpeciality == null) {
+                        return Mono.just(ResponseEntity.badRequest().build());
+                }
+
+                return externalServiceInvoker.invokeIndisaDoctors(codePrevision, office, codeSpeciality)
+                                .map(result -> {
+                                        if (result.whith().isEmpty() && result.whithout().isEmpty()) {
+                                                return ResponseEntity.notFound().build();
+                                        } else {
+                                                return ResponseEntity.ok(result);
+                                        }
+                                });
         }
 
 }

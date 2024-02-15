@@ -61,13 +61,17 @@ public class IndisaExternalController {
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/offices")
-        public ResponseEntity<List<String>> invokeExternalServiceOffice(
+        public Mono<ResponseEntity<List<String>>> invokeExternalServiceOffice(
                         @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision) {
-                List<String> result = externalServiceInvoker
-                                .invokeIndisaOffice(codePrevision).block();
-                if (result.isEmpty())
-                        new ResponseEntity<>(HttpStatus.NOT_FOUND);
-                return new ResponseEntity<>(result, HttpStatus.OK);
+                return externalServiceInvoker
+                                .invokeIndisaOffice(codePrevision)
+                                .map(result -> {
+                                        if (result.isEmpty()) {
+                                                return ResponseEntity.notFound().build();
+                                        } else {
+                                                return ResponseEntity.ok(result);
+                                        }
+                                });
         }
 
         @Operation(summary = "lista de previsión", description = "traer todas las previsiones o seguros de salud chilenas")

@@ -6,10 +6,12 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import cl.hcs.finder.appointmentback.entity.TaskProgram;
 
 @Repository
+@Transactional
 public interface TaskProgramRepository extends JpaRepository<TaskProgram, Long>, JpaSpecificationExecutor<TaskProgram> {
 
     @Modifying

@@ -71,16 +71,18 @@ public class TaskProgramService {
             spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("officeName"), office));
         }
         if (isTaskValidate != null) {
-            if (isTaskValidate) {
+            if (isTaskValidate) {                
                 // Si es true, la fecha actual debe estar entre la fecha desde y hasta
                 spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.and(
                         criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), LocalDate.now()),
                         criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), LocalDate.now())));
+                // Agregar la condición adicional
+                spec = spec.or((root, query, criteriaBuilder) -> criteriaBuilder.greaterThan(root.get("startDate"),
+                        LocalDate.now()));
             } else {
                 // Si es false, la fecha actual NO debe estar entre la fecha desde y hasta
-                spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.or(
-                        criteriaBuilder.lessThan(root.get("endDate"), LocalDate.now()),
-                        criteriaBuilder.greaterThan(root.get("startDate"), LocalDate.now())));
+                spec = spec.and((root, query, criteriaBuilder) -> 
+                        criteriaBuilder.lessThan(root.get("endDate"), LocalDate.now()));
             }
         }
         Page<TaskProgram> taskPrograms = taskProgramRepository.findAll(spec, pageable);
@@ -96,7 +98,6 @@ public class TaskProgramService {
                 .flatMap(optional -> optional.map(Mono::just)
                         .orElse(Mono.empty()));
     }
-    
 
     @Transactional
     public Mono<Integer> updateTaskProgramActive(Long id, boolean active) {

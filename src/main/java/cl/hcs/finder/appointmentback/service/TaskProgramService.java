@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -70,19 +71,23 @@ public class TaskProgramService {
         if (office != null && !office.isEmpty()) {
             spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.equal(root.get("officeName"), office));
         }
-        if (isTaskValidate != null) {
+        if (isTaskValidate != null) {            
             if (isTaskValidate) {                
                 // Si es true, la fecha actual debe estar entre la fecha desde y hasta
-                spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.and(
+                Specification<TaskProgram> dateCondition1 = (root, query, criteriaBuilder) -> criteriaBuilder.and(
                         criteriaBuilder.lessThanOrEqualTo(root.get("startDate"), LocalDate.now()),
-                        criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), LocalDate.now())));
-                // Agregar la condición adicional
-                spec = spec.or((root, query, criteriaBuilder) -> criteriaBuilder.greaterThan(root.get("startDate"),
-                        LocalDate.now()));
+                        criteriaBuilder.greaterThanOrEqualTo(root.get("endDate"), LocalDate.now()));
+
+                Specification<TaskProgram> dateCondition2 = (root, query, criteriaBuilder) -> criteriaBuilder.or(
+                        criteriaBuilder.greaterThan(root.get("startDate"), LocalDate.now()));
+                        
+                // Combinar las dos condiciones usando el método and
+                spec = spec.and(dateCondition1.or(dateCondition2));
+
             } else {
                 // Si es false, la fecha actual NO debe estar entre la fecha desde y hasta
-                spec = spec.and((root, query, criteriaBuilder) -> 
-                        criteriaBuilder.lessThan(root.get("endDate"), LocalDate.now()));
+                spec = spec.and((root, query, criteriaBuilder) -> criteriaBuilder.lessThan(root.get("endDate"),
+                        LocalDate.now()));
             }
         }
         Page<TaskProgram> taskPrograms = taskProgramRepository.findAll(spec, pageable);

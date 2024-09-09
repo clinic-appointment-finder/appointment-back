@@ -10,7 +10,7 @@ Antes de comenzar, asegúrate de tener instalados los siguientes requisitos:
 - GNU Make: Si estás en un sistema Unix-like, Make generalmente viene preinstalado. Si no, puedes instalarlo utilizando tu gestor de paquetes de preferencia.
 -  Base de datos PostgreSQL: Asegúrate de tener una base de datos PostgreSQL disponible para utilizarla con la aplicación. Si aún no tienes una instalada, puedes instalarla utilizando las instrucciones de la documentación oficial de PostgreSQL.
 
-## Configuración del Proyecto
+## Descargar el Proyecto
 
 1. Clona este repositorio en tu máquina local:
 

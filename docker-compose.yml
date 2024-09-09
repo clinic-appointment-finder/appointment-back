@@ -1,0 +1,44 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: ./Dockerfile      
+    image: hugomode/clinic-appointment-back:latest  
+    container_name: clinic-appointment-back
+    ports:
+      - "8051:8080"
+    environment:
+      spring.datasource.url: 'jdbc:postgresql://${DB_POSTGRES_HOST}:5432/mis_proyectos'
+      spring.datasource.username: ${DB_POSTGRES_USER}
+      spring.datasource.password: ${DB_POSTGRES_PASS}
+      spring.datasource.driver-class-name: 'org.postgresql.Driver'
+      spring.jpa.properties.hibernate.default_schema: 'appointment_doctor'
+      spring.jpa.database: 'POSTGRESQL'
+      spring.jpa.show-sql: 'false'
+      spring.jpa.hibernate.ddl-auto: 'update'
+      # spring.autoconfigure.exclude: org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration
+      management.endpoints.web.exposure.include: '*'
+      logging.level.cl.hcs.finder.appointmentback.service: 'info'
+      swagger.openapi.dev-url: 'http://appointment-back:8080'
+      swagger.openapi.prod-url: 'https://clinic-appointment.ultra-neo.com'
+      swagger.openapi.url.portfolio: 'https://portfolio.ultra-neo.com'
+      indisa.app.url: &indisa-app-url 'https://agenda.eniax.cl'
+      indisa.app.url.referer: 'https://agenda.eniax.cl/consulta_indisa'
+      indisa.app.url.path.office: &indisa-office-path '/api/v1/search'
+      indisa.app.url.path.speciality: *indisa-office-path
+      indisa.app.url.path.doctors: *indisa-office-path
+      indisa.app.url.path.prevision: '/api/v1/medical_insurances/consulta_indisa'
+      indisa.app.url.path.schedule: '/api/v1/enroll_patient/consulta_indisa'
+      indisa.app.url.path: '*indisa-app-url/consulta_indisa'
+      indisa.app.url.path.calendar: '/api/v1/create_calendar'
+      indisa.app.rut: &indisa-app-rut '11.111.111-1'
+      indisa.app.calendar.body: 'spec_id=<<<PUT_VALUE_HERE>>>&doc_id=<<<PUT_VALUE_HERE>>>&source=ajax&office_id=<<<PUT_VALUE_HERE>>>&month=0&year=0'      
+      indisa.app.body: 'spec_id=&doc_id=&office_id=&source=browser&isapre=&patient_rut=*indisa-app-rut'
+      indisa.app.url.path.doctors.image.default: 'https://agenda.eniax.cl/static/images/agenda/Medico_2.png'
+    networks:
+      - proxy
+    restart: unless-stopped
+
+networks:
+  proxy:
+    external: true

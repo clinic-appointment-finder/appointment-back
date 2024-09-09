@@ -1,0 +1,77 @@
+name: Install to Remote Server
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  WORKSPACE_DIR: "~/workspace"
+  SSH_CONNECTION: "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+
+jobs:
+  copy_files:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4  
+
+    - name: Set up SSH
+      uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Remove existing directory if it exists and create new one
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ env.SSH_CONNECTION }} "
+          rm -rf ${{ env.WORKSPACE_DIR }}/$GITHUB_REPOSITORY &&
+          mkdir -p ${{ env.WORKSPACE_DIR }}/$GITHUB_REPOSITORY
+        "
+
+    - name: Copy files to remote server
+      run: |
+        scp -r -o StrictHostKeyChecking=no "$(pwd)"/* ${{ env.SSH_CONNECTION }}:${{ env.WORKSPACE_DIR }}/$GITHUB_REPOSITORY
+
+  build:
+    runs-on: ubuntu-latest
+    needs: copy_files
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up SSH
+      uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Build with Docker Compose
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ env.SSH_CONNECTION }} "
+          cd ${{ env.WORKSPACE_DIR }}/$GITHUB_REPOSITORY &&
+          docker compose build --no-cache
+        "
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up SSH
+      uses: ./.github/actions/setup-ssh
+      with:
+        ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+    - name: Deploy with Docker Compose
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ env.SSH_CONNECTION }} "
+          cd ${{ env.WORKSPACE_DIR }}/$GITHUB_REPOSITORY &&
+          export DB_POSTGRES_HOST=${{ secrets.DB_POSTGRES_HOST }} &&
+          export DB_POSTGRES_PASS=${{ secrets.DB_POSTGRES_PASS }} &&
+          export DB_POSTGRES_USER=${{ secrets.DB_POSTGRES_USER }} &&
+          docker compose up -d --force-recreate
+        "

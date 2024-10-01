@@ -3,6 +3,7 @@ package cl.hcs.finder.appointmentback.initializers;
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 
 import cl.hcs.finder.appointmentback.common.Helper;
@@ -10,6 +11,7 @@ import cl.hcs.finder.appointmentback.entity.Clinic;
 import cl.hcs.finder.appointmentback.repository.ClinicRepository;
 
 @Component
+@DependsOn("schemaInitializer")
 public class DataInitializer implements CommandLineRunner {
 
     private static final Logger log = Helper.getLogger();

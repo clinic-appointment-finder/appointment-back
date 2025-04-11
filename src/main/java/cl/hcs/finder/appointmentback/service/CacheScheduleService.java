@@ -22,6 +22,9 @@ public class CacheScheduleService {
     @Value("${indisa.app.rut}")
     private String indisaApirut;
 
+    @Value("${indisa.app.agenda.id}")
+    private String agendaId;
+
     @Value("${indisa.app.url.referer}")
     private String indisaApiReferer;
 
@@ -43,15 +46,17 @@ public class CacheScheduleService {
 
         log.info("Making request to Indisa API. Schedule -> RequestBody: {}", requestBody);
 
-        return webClient.post()
-                .uri(String.format("%s/%s", pathSchedule, indisaApirut))
-                .header("Accept", "*/*")
-                .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                .header("Referer", indisaApiReferer)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(JsonNode.class)
-                .map(result -> result.get("agenda_id").asText());
+        return Mono.just(agendaId);
+
+        // return webClient.post()
+        //         .uri(String.format("%s/%s", pathSchedule, indisaApirut))
+        //         .header("Accept", "*/*")
+        //         .header("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+        //         .header("Referer", indisaApiReferer)
+        //         .bodyValue(requestBody)
+        //         .retrieve()
+        //         .bodyToMono(JsonNode.class)
+        //         .map(result -> result.get("agenda_id").asText());
     }
 
     @CacheEvict(value = "indisaScheduleCache", allEntries = true)

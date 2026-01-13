@@ -1,5 +1,5 @@
 # Utiliza una imagen base con JDK 17
-FROM openjdk:17-jdk-slim
+FROM openjdk:17.0.1-jdk-slim
 
 # Define la versión de Maven que deseas utilizar
 #ENV MAVEN_VERSION=3.8.4

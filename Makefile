@@ -9,6 +9,9 @@ docker-build:
 docker-shell:
 	docker run -it --rm -v $(GIT_DIR):/app --net proxy -p 8080:8080 -w /app/$(PROJECT_FOLDER) --name $(PACKAGE_NAME)-dev --entrypoint=/bin/bash $(PACKAGE_NAME)-dev
 
+docker-test:
+	docker run --rm -v $(GIT_DIR):/app --net proxy -w /app/$(PROJECT_FOLDER) --name $(PACKAGE_NAME)-test $(PACKAGE_NAME)-dev ./mvnw test
+
 run:	
 	#mvn compile exec:java -Dexec.cleanupDaemonThreads=false
 	./mvnw spring-boot:run

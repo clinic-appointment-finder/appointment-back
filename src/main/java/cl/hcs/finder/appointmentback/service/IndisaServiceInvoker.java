@@ -212,7 +212,7 @@ public class IndisaServiceInvoker {
                                                         .bodyValue(requestBody)
                                                         .retrieve()
                                                         .bodyToMono(JsonNode.class)
-                                                        .map(result -> extractMedicos(result.get("data").asText()));
+                                                        .map(result -> extractMedicos(result.path("data").asText("")));
                                 });
         }
 
@@ -261,16 +261,31 @@ public class IndisaServiceInvoker {
                 List<MedicalAgreementModel.DoctorModel> whithList = new ArrayList<>();
                 List<MedicalAgreementModel.DoctorModel> whithoutList = new ArrayList<>();
 
-                Pattern regexMedicos = Pattern.compile(
-                                "<li class=\"has_agenda_(\\w+)\\s*\"[^>]*>\\s*<img src=\"([^\"]+)\"[^>]*>\\s*<a[^>]*data-convenios\\s*=\\s*\"([^\"]*)\"[^>]*data-id=\"([^\"]+)\"[^>]*>\\s*<span class=\"doctor-name\">([^<]+)<\\/span>",
-                                Pattern.MULTILINE);
-                Matcher medicoMatcher = regexMedicos.matcher(data);
-                while (medicoMatcher.find()) {
-                        String agenda = medicoMatcher.group(1);
-                        String urlImagen = medicoMatcher.group(2);
-                        String conveniosData = medicoMatcher.group(3);
-                        String code = medicoMatcher.group(4);
-                        String name = medicoMatcher.group(5);
+                Pattern doctorBlockPattern = Pattern.compile(
+                                "<li[^>]*class=\"has_agenda_(\\w+)[^\"]*\"[^>]*>(.*?)</li>",
+                                Pattern.DOTALL | Pattern.CASE_INSENSITIVE);
+                Matcher doctorBlockMatcher = doctorBlockPattern.matcher(data);
+
+                while (doctorBlockMatcher.find()) {
+                        String agenda = doctorBlockMatcher.group(1);
+                        String doctorBlock = doctorBlockMatcher.group(2);
+
+                        String urlImagen = extractGroup(doctorBlock,
+                                        "<img[^>]*src=\"([^\"]+)\"",
+                                        1);
+                        String conveniosData = extractGroup(doctorBlock,
+                                        "data-convenios\\s*=\\s*\"([^\"]*)\"",
+                                        1);
+                        String code = extractGroup(doctorBlock,
+                                        "data-id=\"([^\"]+)\"",
+                                        1);
+                        String name = extractGroup(doctorBlock,
+                                        "<span[^>]*class=\"doctor-name\"[^>]*>(.*?)</span>",
+                                        1);
+
+                        if (code == null || name == null) {
+                                continue;
+                        }
 
                         boolean tieneConvenio = conveniosData.trim().isEmpty();
                         String imageUrl = urlImagen.startsWith("https") ? urlImagen
@@ -289,6 +304,14 @@ public class IndisaServiceInvoker {
                         }
                 }
                 return new MedicalAgreementModel(whithList, whithoutList);
+        }
+
+        private String extractGroup(String input, String regex, int group) {
+                Matcher matcher = Pattern.compile(regex, Pattern.DOTALL | Pattern.CASE_INSENSITIVE).matcher(input);
+                if (!matcher.find()) {
+                        return "";
+                }
+                return matcher.group(group).replaceAll("\\s+", " ").trim();
         }
 
 }

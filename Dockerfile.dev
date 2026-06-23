@@ -1,22 +1,22 @@
-# Utiliza una imagen base con JDK 17
-FROM openjdk:17.0.1-jdk-slim
+FROM maven:3.9.9-eclipse-temurin-17
 
-# Define la versión de Maven que deseas utilizar
-#ENV MAVEN_VERSION=3.8.4
-
-RUN apt-get update && \
-    apt-get install -y curl maven make telnet && \
-    apt-get clean
-
-# Copia tu código fuente y archivos de proyecto aquí (si es necesario)
-COPY . /app
-
-# Establece el directorio de trabajo
 WORKDIR /app
 
 ARG USER_ID=1000
 ARG GROUP_ID=1000
 
 ENV TZ=America/Santiago
+ENV MAVEN_CONFIG=
 
-RUN mvn clean install
+RUN apt-get update && \
+    apt-get install -y curl make telnet && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY pom.xml ./
+
+# Cache Maven dependencies separately so source-only changes reuse this layer.
+RUN --mount=type=cache,target=/root/.m2 mvn dependency:go-offline
+
+COPY src src
+
+RUN --mount=type=cache,target=/root/.m2 mvn -DskipTests compile

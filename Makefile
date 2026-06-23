@@ -2,9 +2,10 @@ SHELL=/bin/bash
 PACKAGE_NAME=appointment-back
 PROJECT_FOLDER=.
 GIT_DIR=$(shell pwd)
+DOCKER_BUILDKIT ?= 1
 
 docker-build:
-	docker build -t $(PACKAGE_NAME)-dev -f Dockerfile.dev  $(GIT_DIR)
+	DOCKER_BUILDKIT=$(DOCKER_BUILDKIT) docker build -t $(PACKAGE_NAME)-dev -f Dockerfile.dev $(GIT_DIR)
 
 docker-shell:
 	docker run -it --rm -v $(GIT_DIR):/app --net proxy -p 8080:8080 -w /app/$(PROJECT_FOLDER) --name $(PACKAGE_NAME)-dev --entrypoint=/bin/bash $(PACKAGE_NAME)-dev
@@ -52,6 +53,7 @@ create-properties-file:
         echo "indisa.app.url.path.calendar=/api/v1/create_calendar" >> $(FILE_PATH); \
         echo "indisa.app.calendar.body=spec_id=<<<PUT_VALUE_HERE>>>&doc_id=<<<PUT_VALUE_HERE>>>&source=ajax&office_id=<<<PUT_VALUE_HERE>>>&month=0&year=0" >> $(FILE_PATH); \
         echo "indisa.app.rut=11.111.111-1" >> $(FILE_PATH); \
+        echo "indisa.app.agenda.id=67f9519ec9bb0708cbd1a7e6" >> $(FILE_PATH); \
         echo "indisa.app.body=spec_id=&doc_id=&office_id=&source=browser&isapre=&patient_rut=\$${indisa.app.rut}" >> $(FILE_PATH); \
         echo "indisa.app.url.path.doctors.image.default=https://agenda.eniax.cl/static/images/agenda/Medico_2.png" >> $(FILE_PATH); \
 	fi

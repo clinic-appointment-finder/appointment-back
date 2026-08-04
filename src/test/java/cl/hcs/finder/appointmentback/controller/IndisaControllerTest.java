@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,7 +58,8 @@ public class IndisaControllerTest {
 
     @Test
     public void testCreateTaskProgram() {
-        IndisaAppointmentInputModel inputModel = new IndisaAppointmentInputModel(67, "2024-01-15", "2024-01-20", 226,
+        IndisaAppointmentInputModel inputModel = new IndisaAppointmentInputModel(67, "2024-01-15", "2024-01-20",
+                LocalTime.of(9, 0), LocalTime.of(18, 0), 226,
                 new Integer[] { 14655 }, "PROVIDENCIA", new String[] { "test@example.com" });
         TaskProgram expectedTaskProgram = new TaskProgram();
         expectedTaskProgram.setTaskProgramId(1L);

@@ -2,6 +2,7 @@ package cl.hcs.finder.appointmentback.entity;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -40,6 +41,12 @@ public class TaskProgram {
     private LocalDate startDate;
 
     private LocalDate endDate;
+
+    @Column(name = "start_time", nullable = true)
+    private LocalTime startTime;
+
+    @Column(name = "end_time", nullable = true)
+    private LocalTime endTime;
 
     private String officeName;
 
@@ -102,6 +109,22 @@ public class TaskProgram {
 
     public void setEndDate(LocalDate endDate) {
         this.endDate = endDate;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(LocalTime startTime) {
+        this.startTime = startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(LocalTime endTime) {
+        this.endTime = endTime;
     }
 
     public String getOfficeName() {

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Collections;
 import java.util.Optional;
+import java.time.LocalTime;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,8 @@ public class TaskProgramServiceTest {
 
     @Test
     public void testCreateTaskProgram() {
-        IndisaAppointmentInputModel inputModel = new IndisaAppointmentInputModel(67, "2024-01-15", "2024-01-20", 226,
+        IndisaAppointmentInputModel inputModel = new IndisaAppointmentInputModel(67, "2024-01-15", "2024-01-20",
+                LocalTime.of(9, 0), LocalTime.of(18, 0), 226,
                 new Integer[] { 14655 }, "PROVIDENCIA", new String[] { "test@example.com" });
         TaskProgram savedTask = new TaskProgram();
         savedTask.setTaskProgramId(1L);

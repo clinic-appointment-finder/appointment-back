@@ -18,6 +18,7 @@ import cl.hcs.finder.appointmentback.service.IndisaServiceInvoker;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -57,7 +58,7 @@ public class IndisaExternalController {
         @Operation(summary = "Buscar sucursales", description = "Busca las sucursales disponibles de la clínica Indisa")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", content = {
-                                        @Content(schema = @Schema(implementation = IndisaCalendarOutputModel.class), mediaType = "application/json") }),
+                                        @Content(array = @ArraySchema(schema = @Schema(implementation = String.class)), mediaType = "application/json") }),
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/offices")
@@ -77,7 +78,7 @@ public class IndisaExternalController {
         @Operation(summary = "lista de previsión", description = "traer todas las previsiones o seguros de salud chilenas")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", content = {
-                                        @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
+                                        @Content(array = @ArraySchema(schema = @Schema(implementation = GenericOutputModel.class)), mediaType = "application/json") }),
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @GetMapping("/prevision")
@@ -100,7 +101,7 @@ public class IndisaExternalController {
         @Operation(summary = "lista de especialidades", description = "traer todas las especialidades de la clínica Indisa por sucursal y previsión")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", content = {
-                                        @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
+                                        @Content(array = @ArraySchema(schema = @Schema(implementation = GenericOutputModel.class)), mediaType = "application/json") }),
                         @ApiResponse(responseCode = "400", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
@@ -125,7 +126,7 @@ public class IndisaExternalController {
         @Operation(summary = "lista de los médicos", description = "traer los médicos de la clínica Indisa por sucursal, previsión y especialidad")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", content = {
-                                        @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
+                                        @Content(schema = @Schema(implementation = MedicalAgreementModel.class), mediaType = "application/json") }),
                         @ApiResponse(responseCode = "400", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })

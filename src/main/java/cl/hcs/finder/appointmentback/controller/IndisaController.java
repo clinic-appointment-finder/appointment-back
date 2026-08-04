@@ -33,6 +33,8 @@ import cl.hcs.finder.appointmentback.service.TaskProgramService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.ArraySchema;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -69,13 +71,7 @@ public class IndisaController {
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
         @PostMapping("/appointments")
         public Mono<ResponseEntity<TaskProgram>> createTaskProgram(
-                        @Schema(description = "Input body para crear una tarea", example = "{\"prevision_id\": 67,\n" + //
-                                        "  \"start_date\": \"2024-01-15\",\n" + //
-                                        "  \"end_date\": \"2024-01-20\",\n" + //
-                                        "  \"speciality_id\": 226,\n" + //
-                                        "  \"doctors_ids\": [14655, 12375],\n" + //
-                                        "  \"office\": \"PROVIDENCIA\",\n" + //
-                                        "  \"emails\": [\"email1@example.com\", \"email2@example.com\"]}", required = true) @RequestBody IndisaAppointmentInputModel inputModel) {
+                        @io.swagger.v3.oas.annotations.parameters.RequestBody(description = "Datos de la tarea de búsqueda", required = true, content = @Content(mediaType = "application/json", schema = @Schema(implementation = IndisaAppointmentInputModel.class), examples = @ExampleObject(value = "{\n  \"prevision_id\": 67,\n  \"start_date\": \"2024-01-15\",\n  \"end_date\": \"2024-01-20\",\n  \"start_time\": \"09:00:00\",\n  \"end_time\": \"18:00:00\",\n  \"speciality_id\": 226,\n  \"doctors_ids\": [14655, 12375],\n  \"office\": \"PROVIDENCIA\",\n  \"emails\": [\"email1@example.com\", \"email2@example.com\"]\n}"))) @RequestBody IndisaAppointmentInputModel inputModel) {
                 return taskProgramService.createTaskProgram(inputModel)
                                 .map(createdTaskProgram -> ResponseEntity.status(HttpStatus.CREATED)
                                                 .body(createdTaskProgram));
@@ -84,7 +80,7 @@ public class IndisaController {
         @Operation(summary = "Buscar los programas", description = "trae todos las tareas programadas existentes en la base de datos con paginación")
         @ApiResponses({
                         @ApiResponse(responseCode = "200", content = {
-                                        @Content(schema = @Schema(implementation = List.class), mediaType = "application/json") }),
+                                        @Content(array = @ArraySchema(schema = @Schema(implementation = TaskProgramOutputModel.class)), mediaType = "application/json") }),
                         @ApiResponse(responseCode = "400", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "404", content = { @Content(schema = @Schema()) }),
                         @ApiResponse(responseCode = "500", content = { @Content(schema = @Schema()) }) })
@@ -133,7 +129,12 @@ public class IndisaController {
                                                 .just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build()));
         }
 
-        @PatchMapping("/appointments/{id}")
+         @Operation(summary = "Activar o desactivar una tarea", description = "Actualiza el estado activo de una tarea programada")
+         @ApiResponses({
+                         @ApiResponse(responseCode = "200", description = "Estado actualizado"),
+                         @ApiResponse(responseCode = "404", description = "Tarea no encontrada"),
+                         @ApiResponse(responseCode = "500", description = "Error interno") })
+         @PatchMapping("/appointments/{id}")
         public Mono<ResponseEntity<Void>> updateTaskProgramActive(@PathVariable Long id,
                         @RequestBody Map<String, Boolean> requestBody) {
                 boolean isActive = requestBody.getOrDefault("isActive", false);
@@ -147,7 +148,12 @@ public class IndisaController {
                                 });
         }
 
-        @PatchMapping("/appointments/{id}/doctors/{doctorId}")
+         @Operation(summary = "Activar o desactivar notificaciones de un médico", description = "Actualiza la preferencia de notificación de un médico dentro de una tarea")
+         @ApiResponses({
+                         @ApiResponse(responseCode = "200", description = "Preferencia actualizada"),
+                         @ApiResponse(responseCode = "404", description = "Tarea o médico no encontrado"),
+                         @ApiResponse(responseCode = "500", description = "Error interno") })
+         @PatchMapping("/appointments/{id}/doctors/{doctorId}")
         public Mono<ResponseEntity<HttpStatus>> updateDoctorNotify(@PathVariable Long id,
                         @PathVariable Integer doctorId,
                         @RequestBody Map<String, Boolean> requestBody) {
@@ -202,10 +208,12 @@ public class IndisaController {
                                                                                                                         taskProgram.getTaskProgramId(),
                                                                                                                         new Clinic(1, "Clínica Indisa"),
                                                                                                                         doctorsList,
-                                                                                                                        prevision,
-                                                                                                                        taskProgram.getStartDate(),
-                                                                                                                        taskProgram.getEndDate(),
-                                                                                                                        taskProgram.getOfficeName(),
+                                                                                                                         prevision,
+                                                                                                                         taskProgram.getStartDate(),
+                                                                                                                         taskProgram.getEndDate(),
+                                                                                                                         taskProgram.getStartTime(),
+                                                                                                                         taskProgram.getEndTime(),
+                                                                                                                         taskProgram.getOfficeName(),
                                                                                                                         speciality,
                                                                                                                         taskProgram.getEmails(),
                                                                                                                         taskProgram.getCreationDate(),

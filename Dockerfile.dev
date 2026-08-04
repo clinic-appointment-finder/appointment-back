@@ -14,9 +14,9 @@ RUN apt-get update && \
 
 COPY pom.xml ./
 
-# Cache Maven dependencies separately so source-only changes reuse this layer.
-RUN --mount=type=cache,target=/root/.m2 mvn dependency:go-offline
+# Store project dependencies in the image so make run can reuse them.
+RUN mvn -B dependency:resolve
 
 COPY src src
 
-RUN --mount=type=cache,target=/root/.m2 mvn -DskipTests compile
+RUN mvn -DskipTests compile

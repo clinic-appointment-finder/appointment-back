@@ -56,6 +56,8 @@ public class TaskProgramService {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
         taskProgram.setStartDate(LocalDate.parse(inputModel.startDate(), formatter));
         taskProgram.setEndDate(LocalDate.parse(inputModel.endDate(), formatter));
+        taskProgram.setStartTime(inputModel.startTime());
+        taskProgram.setEndTime(inputModel.endTime());
         // Guardar el TaskProgram y devolver un Mono
         return Mono.just(taskProgramRepository.save(taskProgram));
     }

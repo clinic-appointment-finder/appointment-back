@@ -1,13 +1,18 @@
 package cl.hcs.finder.appointmentback.model;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
+import java.time.LocalTime;
 
-public record IndisaAppointmentInputModel(@JsonAlias("prevision_id") Integer previsionID,
-        @JsonAlias("start_date") String startDate,
-        @JsonAlias("end_date") String endDate,
-        @JsonAlias("speciality_id") Integer specialityID,
-        @JsonAlias("doctors_ids") Integer[] doctorsIDs,
-        @JsonAlias("office") String office,
-        @JsonAlias("emails") String[] emails
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public record IndisaAppointmentInputModel(@JsonProperty("prevision_id") @JsonAlias("previsionID") Integer previsionID,
+        @JsonProperty("start_date") @JsonAlias("startDate") String startDate,
+        @JsonProperty("end_date") @JsonAlias("endDate") String endDate,
+        @JsonProperty("start_time") @JsonAlias("startTime") LocalTime startTime,
+        @JsonProperty("end_time") @JsonAlias("endTime") LocalTime endTime,
+        @JsonProperty("speciality_id") @JsonAlias("specialityID") Integer specialityID,
+        @JsonProperty("doctors_ids") @JsonAlias("doctorsIDs") Integer[] doctorsIDs,
+        @JsonProperty("office") String office,
+        @JsonProperty("emails") String[] emails
         ) {
-} 
+}

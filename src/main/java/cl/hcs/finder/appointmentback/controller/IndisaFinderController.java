@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Comparator;
 import java.util.stream.Stream;
@@ -31,10 +32,13 @@ import cl.hcs.finder.appointmentback.model.FinderAppointmentOutputModel;
 import cl.hcs.finder.appointmentback.model.FinderTaskAppointmentOutputModel;
 import cl.hcs.finder.appointmentback.model.FinderCandidateAppointmentInputModel;
 import cl.hcs.finder.appointmentback.model.FinderDoctorAppointmentsOutputModel;
+import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaProposeHoursInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaProposeHoursOutputModel;
+import cl.hcs.finder.appointmentback.model.MedicalAgreementModel;
+import cl.hcs.finder.appointmentback.model.MedicalAgreementModel.DoctorModel;
 import cl.hcs.finder.appointmentback.service.IndisaServiceInvoker;
 import cl.hcs.finder.appointmentback.service.TaskProgramService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -69,7 +73,7 @@ public class IndisaFinderController {
     }
 
     @Operation(summary = "Buscar horas disponibles",
-            description = "Obtiene las tareas vigentes y activas, consulta el calendario y luego los horarios de Indisa para cada médico y fecha")
+            description = "Obtiene las tareas vigentes y activas, consulta el calendario y los horarios de Indisa para cada médico y fecha. Enriquece la respuesta con datos de la clínica, prevision, especialidad, médicos (nombre, imagen, convenio) y correos de notificación.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", content = @Content(array = @ArraySchema(schema = @Schema(implementation = FinderTaskAppointmentOutputModel.class)), mediaType = "application/json")),
             @ApiResponse(responseCode = "500", description = "Error consultando Indisa") })
@@ -80,24 +84,7 @@ public class IndisaFinderController {
 
         return taskProgramService.FindAll(0, Integer.MAX_VALUE, true, true, null, false)
                 .flatMapMany(page -> Flux.fromIterable(page.getContent()))
-                .flatMap(taskProgram -> findTaskAppointments(taskProgram)
-                        .collectList()
-                        .map(this::groupAppointmentsByDoctor)
-                        .filter(appointments -> !appointments.isEmpty())
-                        .map(appointments -> new FinderTaskAppointmentOutputModel(
-                                taskProgram.getTaskProgramId(),
-                                taskProgram.getClinic() != null ? taskProgram.getClinic().getName() : null,
-                                taskProgram.getEmails(),
-                                taskProgram.getPrevisionId(),
-                                taskProgram.getSpecialityId(),
-                                taskProgram.getOfficeName(),
-                                taskProgram.getStartDate(),
-                                taskProgram.getEndDate(),
-                                taskProgram.getStartTime(),
-                                taskProgram.getEndTime(),
-                                taskProgram.getCreationDate(),
-                                taskProgram.isActive(),
-                                appointments)))
+                .flatMap(this::enrichTaskAppointments)
                 .collectList()
                 .map(ResponseEntity::ok)
                 .onErrorResume(error -> {
@@ -107,7 +94,7 @@ public class IndisaFinderController {
     }
 
     @Operation(summary = "Buscar citas candidatas",
-            description = "Consulta disponibilidad de Indisa sin crear ni leer una tarea desde la base de datos")
+            description = "Consulta disponibilidad de Indisa sin crear ni leer una tarea desde la base de datos. Enriquece la respuesta con datos del médico (nombre, imagen, convenio) obtenidos desde Indisa.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", content = @Content(array = @ArraySchema(schema = @Schema(implementation = FinderDoctorAppointmentsOutputModel.class)), mediaType = "application/json")),
             @ApiResponse(responseCode = "400", description = "Parámetros inválidos"),
@@ -120,9 +107,7 @@ public class IndisaFinderController {
             ResponseEntity<List<FinderDoctorAppointmentsOutputModel>> internalServerError =
                     ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
 
-            return findTaskAppointments(candidateTask)
-                    .collectList()
-                    .map(this::groupAppointmentsByDoctor)
+            return enrichCandidateAppointments(candidateTask)
                     .map(ResponseEntity::ok)
                     .onErrorResume(error -> {
                         log.error("Error buscando citas candidatas de Indisa", error);
@@ -132,6 +117,179 @@ public class IndisaFinderController {
             log.warn("Parámetros inválidos para búsqueda de citas candidatas", error);
             return Mono.just(ResponseEntity.badRequest().build());
         }
+    }
+
+    private Mono<FinderTaskAppointmentOutputModel> enrichTaskAppointments(TaskProgram taskProgram) {
+        return findTaskAppointments(taskProgram)
+                .collectList()
+                .map(appointments -> groupAppointmentsByDoctorWithTask(taskProgram, appointments))
+                .filter(appointments -> !appointments.isEmpty())
+                .flatMap(appointments -> enrichTaskDoctors(taskProgram, appointments)
+                        .flatMap(enriched -> enrichTaskMetadata(taskProgram, enriched)));
+    }
+
+    private List<FinderDoctorAppointmentsOutputModel> groupAppointmentsByDoctorWithTask(
+            TaskProgram taskProgram, List<FinderAppointmentOutputModel> appointments) {
+        Map<Integer, AppointmentFound> doctorMap = taskProgram.getDoctors().stream()
+                .collect(Collectors.toMap(AppointmentFound::getDoctorId, d -> d, (a, b) -> a, LinkedHashMap::new));
+
+        Map<Integer, List<FinderAppointmentOutputModel>> grouped = appointments.stream()
+                .sorted(Comparator.comparing(FinderAppointmentOutputModel::date)
+                        .thenComparing(FinderAppointmentOutputModel::doctorId))
+                .collect(Collectors.groupingBy(
+                        FinderAppointmentOutputModel::doctorId,
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+
+        return grouped.entrySet().stream()
+                .map(entry -> {
+                    AppointmentFound doctor = doctorMap.get(entry.getKey());
+                    return new FinderDoctorAppointmentsOutputModel(
+                            doctor != null ? doctor.getAppointmentFoundId() : null,
+                            entry.getKey(),
+                            doctor != null && doctor.isNotify(),
+                            null,
+                            null,
+                            false,
+                            entry.getValue());
+                })
+                .toList();
+    }
+
+    private Mono<List<FinderDoctorAppointmentsOutputModel>> enrichTaskDoctors(TaskProgram taskProgram,
+            List<FinderDoctorAppointmentsOutputModel> appointments) {
+        return indisaServiceInvoker.invokeIndisaDoctors(
+                        taskProgram.getPrevisionId().toString(),
+                        taskProgram.getOfficeName(),
+                        taskProgram.getSpecialityId().toString())
+                .map(agreement -> {
+                    List<FinderDoctorAppointmentsOutputModel> enriched = new ArrayList<>();
+                    for (FinderDoctorAppointmentsOutputModel doc : appointments) {
+                        DoctorModel matching = findMatchingDoctor(
+                                doc.doctorId().toString(), agreement.whith());
+                        boolean haveAgreement = true;
+                        String name = "unknown-" + doc.doctorId();
+                        String urlImage = "";
+                        if (matching == null) {
+                            matching = findMatchingDoctor(
+                                    doc.doctorId().toString(), agreement.whithout());
+                            haveAgreement = false;
+                        }
+                        if (matching != null) {
+                            name = matching.name();
+                            urlImage = matching.urlImage();
+                        }
+                        enriched.add(new FinderDoctorAppointmentsOutputModel(
+                                doc.appointmentFoundId(),
+                                doc.doctorId(),
+                                doc.isNotify(),
+                                name,
+                                urlImage,
+                                haveAgreement,
+                                doc.appointments()));
+                    }
+                    return enriched;
+                })
+                .onErrorResume(error -> {
+                    log.warn("Error enriqueciendo doctores de tarea {}", taskProgram.getTaskProgramId(), error);
+                    return Mono.just(appointments);
+                });
+    }
+
+    private Mono<FinderTaskAppointmentOutputModel> enrichTaskMetadata(TaskProgram taskProgram,
+            List<FinderDoctorAppointmentsOutputModel> appointments) {
+        Mono<List<GenericOutputModel>> previsionListMono = indisaServiceInvoker
+                .invokeIndisaPrevision().collectList();
+        Mono<List<GenericOutputModel>> specialityMono = indisaServiceInvoker
+                .invokeIndisaSpeciality(taskProgram.getPrevisionId().toString(),
+                        taskProgram.getOfficeName());
+
+        return Mono.zip(previsionListMono, specialityMono)
+                .map(tuple -> {
+                    GenericOutputModel prevision = findGeneric(tuple.getT1(),
+                            taskProgram.getPrevisionId().toString());
+                    GenericOutputModel speciality = findGeneric(tuple.getT2(),
+                            taskProgram.getSpecialityId().toString());
+                    return new FinderTaskAppointmentOutputModel(
+                            taskProgram.getTaskProgramId(),
+                            taskProgram.getClinic() != null ? taskProgram.getClinic().getName() : null,
+                            taskProgram.getEmails(),
+                            prevision,
+                            speciality,
+                            taskProgram.getOfficeName(),
+                            taskProgram.getStartDate(),
+                            taskProgram.getEndDate(),
+                            taskProgram.getStartTime(),
+                            taskProgram.getEndTime(),
+                            taskProgram.getCreationDate(),
+                            taskProgram.isActive(),
+                            appointments);
+                })
+                .onErrorResume(error -> {
+                    log.warn("Error enriqueciendo metadatos de tarea {}", taskProgram.getTaskProgramId(), error);
+                    return Mono.just(new FinderTaskAppointmentOutputModel(
+                            taskProgram.getTaskProgramId(),
+                            taskProgram.getClinic() != null ? taskProgram.getClinic().getName() : null,
+                            taskProgram.getEmails(),
+                            new GenericOutputModel(taskProgram.getPrevisionId().toString(), ""),
+                            new GenericOutputModel(taskProgram.getSpecialityId().toString(), ""),
+                            taskProgram.getOfficeName(),
+                            taskProgram.getStartDate(),
+                            taskProgram.getEndDate(),
+                            taskProgram.getStartTime(),
+                            taskProgram.getEndTime(),
+                            taskProgram.getCreationDate(),
+                            taskProgram.isActive(),
+                            appointments));
+                });
+    }
+
+    private Mono<List<FinderDoctorAppointmentsOutputModel>> enrichCandidateAppointments(TaskProgram candidateTask) {
+        return findTaskAppointments(candidateTask)
+                .collectList()
+                .map(this::groupAppointmentsByDoctor)
+                .flatMap(appointments -> enrichCandidateDoctors(candidateTask, appointments));
+    }
+
+    private Mono<List<FinderDoctorAppointmentsOutputModel>> enrichCandidateDoctors(TaskProgram taskProgram,
+            List<FinderDoctorAppointmentsOutputModel> appointments) {
+        return indisaServiceInvoker.invokeIndisaDoctors(
+                        taskProgram.getPrevisionId().toString(),
+                        taskProgram.getOfficeName(),
+                        taskProgram.getSpecialityId().toString())
+                .map(agreement -> {
+                    Map<Integer, FinderDoctorAppointmentsOutputModel> enriched = new LinkedHashMap<>();
+                    for (FinderDoctorAppointmentsOutputModel doc : appointments) {
+                        DoctorModel matching = findMatchingDoctor(
+                                doc.doctorId().toString(), agreement.whith());
+                        boolean haveAgreement = true;
+                        String name = "unknown-" + doc.doctorId();
+                        String urlImage = "";
+                        if (matching == null) {
+                            matching = findMatchingDoctor(
+                                    doc.doctorId().toString(), agreement.whithout());
+                            haveAgreement = false;
+                        }
+                        if (matching != null) {
+                            name = matching.name();
+                            urlImage = matching.urlImage();
+                        }
+                        enriched.put(doc.doctorId(), new FinderDoctorAppointmentsOutputModel(
+                                doc.appointmentFoundId(),
+                                doc.doctorId(),
+                                doc.isNotify(),
+                                name,
+                                urlImage,
+                                haveAgreement,
+                                doc.appointments()));
+                    }
+                    List<FinderDoctorAppointmentsOutputModel> result = new ArrayList<>(enriched.values());
+                    return result;
+                })
+                .onErrorResume(error -> {
+                    log.warn("Error enriqueciendo doctores candidatos", error);
+                    return Mono.just(new ArrayList<>(appointments));
+                });
     }
 
     private List<FinderDoctorAppointmentsOutputModel> groupAppointmentsByDoctor(
@@ -145,7 +303,14 @@ public class IndisaFinderController {
                         Collectors.toList()));
 
         return grouped.entrySet().stream()
-                .map(entry -> new FinderDoctorAppointmentsOutputModel(entry.getKey(), entry.getValue()))
+                .map(entry -> new FinderDoctorAppointmentsOutputModel(
+                        null,
+                        entry.getKey(),
+                        false,
+                        null,
+                        null,
+                        false,
+                        entry.getValue()))
                 .toList();
     }
 
@@ -294,6 +459,20 @@ public class IndisaFinderController {
         LocalTime availableTime = LocalTime.parse(hour, DateTimeFormatter.ofPattern("H:mm"));
         return (startTime == null || !availableTime.isBefore(startTime))
                 && (endTime == null || !availableTime.isAfter(endTime));
+    }
+
+    private GenericOutputModel findGeneric(List<GenericOutputModel> list, String code) {
+        Optional<GenericOutputModel> match = list.stream()
+                .filter(item -> item.code().equals(code))
+                .findFirst();
+        return match.orElse(new GenericOutputModel(code, ""));
+    }
+
+    private DoctorModel findMatchingDoctor(String doctorId, List<DoctorModel> docsModel) {
+        Optional<DoctorModel> matchingDoctor = docsModel.stream()
+                .filter(whith -> doctorId.equals(whith.code()))
+                .findFirst();
+        return matchingDoctor.orElse(null);
     }
 
     private static LocalDate parseIndisaDate(String rawDate) {

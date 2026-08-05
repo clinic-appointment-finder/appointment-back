@@ -354,6 +354,12 @@ public class IndisaFinderController {
 
     private Flux<FinderAppointmentOutputModel> findDoctorAppointments(TaskProgram taskProgram,
             AppointmentFound doctor) {
+        LocalDate effectiveStart = taskProgram.getStartDate();
+        if (effectiveStart.isBefore(LocalDate.now())) {
+            effectiveStart = LocalDate.now();
+        }
+        final LocalDate searchStart = effectiveStart;
+
         IndisaCalendarInputModel calendarInput = new IndisaCalendarInputModel(
                 taskProgram.getSpecialityId().toString(),
                 doctor.getDoctorId().toString(),
@@ -368,10 +374,10 @@ public class IndisaFinderController {
                         taskProgram.getTaskProgramId(), doctor.getDoctorId(), error));
 
         Flux<String> monthlyAvailableDates = Flux
-                .fromIterable(monthsBetween(taskProgram.getStartDate(), taskProgram.getEndDate()))
+                .fromIterable(monthsBetween(searchStart, taskProgram.getEndDate()))
                 .flatMap(month -> {
-                    LocalDate monthStart = month.atDay(1).isAfter(taskProgram.getStartDate())
-                            ? month.atDay(1) : taskProgram.getStartDate();
+                    LocalDate monthStart = month.atDay(1).isAfter(searchStart)
+                            ? month.atDay(1) : searchStart;
                     LocalDate monthEnd = month.atEndOfMonth().isBefore(taskProgram.getEndDate())
                             ? month.atEndOfMonth() : taskProgram.getEndDate();
                     return indisaServiceInvoker.invokeIndisaCalendar(calendarInput,
@@ -385,7 +391,7 @@ public class IndisaFinderController {
 
         Flux<String> generalAvailableDates = generalCalendar
                 .flatMap(calendar -> Flux.fromIterable(extractAvailableDates(
-                        calendar, taskProgram.getStartDate(), taskProgram.getEndDate())));
+                        calendar, searchStart, taskProgram.getEndDate())));
 
         return Flux.concat(generalAvailableDates, monthlyAvailableDates)
                 .distinct()

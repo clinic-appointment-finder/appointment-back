@@ -85,7 +85,19 @@ public class IndisaFinderController {
                         .map(this::groupAppointmentsByDoctor)
                         .filter(appointments -> !appointments.isEmpty())
                         .map(appointments -> new FinderTaskAppointmentOutputModel(
-                                taskProgram.getTaskProgramId(), appointments)))
+                                taskProgram.getTaskProgramId(),
+                                taskProgram.getClinic() != null ? taskProgram.getClinic().getName() : null,
+                                taskProgram.getEmails(),
+                                taskProgram.getPrevisionId(),
+                                taskProgram.getSpecialityId(),
+                                taskProgram.getOfficeName(),
+                                taskProgram.getStartDate(),
+                                taskProgram.getEndDate(),
+                                taskProgram.getStartTime(),
+                                taskProgram.getEndTime(),
+                                taskProgram.getCreationDate(),
+                                taskProgram.isActive(),
+                                appointments)))
                 .collectList()
                 .map(ResponseEntity::ok)
                 .onErrorResume(error -> {

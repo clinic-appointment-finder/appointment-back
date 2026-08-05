@@ -47,7 +47,7 @@ public class IndisaExternalControllerTest {
                 .thenReturn(Mono.just(outputModel));
 
         Mono<ResponseEntity<IndisaCalendarOutputModel>> result = indisaExternalController.invokeExternalService("226",
-                "14655", "PROVIDENCIA", "67");
+                "14655", "PROVIDENCIA", "67", null, null);
 
         StepVerifier.create(result)
                 .expectNextMatches(response -> response.getStatusCode() == HttpStatus.OK && response.getBody() != null)

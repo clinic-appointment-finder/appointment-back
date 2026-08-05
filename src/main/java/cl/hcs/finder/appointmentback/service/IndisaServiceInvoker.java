@@ -4,8 +4,13 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 
 import org.slf4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +29,9 @@ import cl.hcs.finder.appointmentback.model.ExternalApiResponseModel;
 import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
+import cl.hcs.finder.appointmentback.model.IndisaProposeHoursInputModel;
+import cl.hcs.finder.appointmentback.model.IndisaProposeHoursApiResponseModel;
+import cl.hcs.finder.appointmentback.model.IndisaProposeHoursOutputModel;
 import cl.hcs.finder.appointmentback.model.MedicalAgreementModel;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -43,6 +51,9 @@ public class IndisaServiceInvoker {
 
         @Value("${indisa.app.url.path.calendar}")
         String indisaUrlApiPathCalendar;
+
+        @Value("${indisa.app.url.path.propose-hours}")
+        private String indisaUrlApiPathProposeHours;
 
         @Value("${indisa.app.calendar.body}")
         private String indisaApiCalendarBody;
@@ -87,10 +98,17 @@ public class IndisaServiceInvoker {
         }
 
         public Mono<IndisaCalendarOutputModel> invokeIndisaCalendar(IndisaCalendarInputModel input) {
+                return invokeIndisaCalendar(input, 0, 0);
+        }
+
+        public Mono<IndisaCalendarOutputModel> invokeIndisaCalendar(IndisaCalendarInputModel input,
+                        int month, int year) {
                 String requestBody = indisaApiCalendarBody
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.specialityID())
                                 .replaceFirst("<<<PUT_VALUE_HERE>>>", input.doctorID())
-                                .replaceFirst("<<<PUT_VALUE_HERE>>>", input.office());
+                                .replaceFirst("<<<PUT_VALUE_HERE>>>", input.office())
+                                .replaceFirst("<<<PUT_VALUE_HERE>>>", String.valueOf(month))
+                                .replaceFirst("<<<PUT_VALUE_HERE>>>", String.valueOf(year));
 
                 log.info("Making request to Indisa API. Calendar ->  RequestBody: {}", requestBody);
 
@@ -102,7 +120,31 @@ public class IndisaServiceInvoker {
                                                                 "application/x-www-form-urlencoded; charset=UTF-8")
                                                 .bodyValue(requestBody)
                                                 .retrieve()
-                                                .bodyToMono(IndisaCalendarOutputModel.class));
+                                                 .bodyToMono(IndisaCalendarOutputModel.class));
+        }
+
+        public Mono<IndisaProposeHoursOutputModel> invokeIndisaProposeHours(
+                        IndisaProposeHoursInputModel input) {
+                String requestBody = String.format(
+                                "spec_id=%s&doc_id=%s&office_id=%s&date=%s&source=browser",
+                                input.specialityID(), input.doctorID(), input.office(), input.date());
+
+                log.info("Making request to Indisa API. Propose hours -> RequestBody: {}", requestBody);
+
+                return cacheService.invokeIndisaSchedule(input.previsionID())
+                                .flatMap(schedule -> webClient.post()
+                                                .uri(indisaUrlApiPathProposeHours + "/" + schedule)
+                                                .header("Accept", "*/*")
+                                                .header("Content-Type",
+                                                                "application/x-www-form-urlencoded; charset=UTF-8")
+                                                .header("Referer", indisaApiReferer)
+                                                .header("X-Requested-With", "XMLHttpRequest")
+                                                .bodyValue(requestBody)
+                                                .retrieve()
+                                                .bodyToMono(IndisaProposeHoursApiResponseModel.class)
+                                                .map(response -> new IndisaProposeHoursOutputModel(
+                                                                input.date(), extractAvailableHours(response.data()),
+                                                                response.status())));
         }
 
         @Cacheable("indisaOfficeCache")
@@ -255,6 +297,46 @@ public class IndisaServiceInvoker {
                 }
 
                 return specialities;
+        }
+
+        static List<String> extractAvailableHours(String data) {
+                if (data == null || data.isBlank()) {
+                        return Collections.emptyList();
+                }
+
+                Set<String> hours = new LinkedHashSet<>();
+                Pattern selectedDatePattern = Pattern.compile(
+                                "get_date_selected\\('(?:[^']* )?([0-9]{1,2}:[0-9]{2})'\\)");
+                Matcher selectedDateMatcher = selectedDatePattern.matcher(data);
+                while (selectedDateMatcher.find()) {
+                        hours.add(selectedDateMatcher.group(1));
+                }
+
+                Pattern hourPattern = Pattern.compile("<span[^>]*class=\"hour\"[^>]*>\\s*([0-9]{1,2}:[0-9]{2})");
+                Matcher hourMatcher = hourPattern.matcher(data);
+                while (hourMatcher.find()) {
+                        hours.add(hourMatcher.group(1));
+                }
+
+                return List.copyOf(hours);
+        }
+
+        static List<String> extractAvailableHours(JsonNode data) {
+                if (data == null || data.isNull() || data.isMissingNode()) {
+                        return Collections.emptyList();
+                }
+                if (data.isTextual()) {
+                        return extractAvailableHours(data.asText());
+                }
+                if (data.isObject()) {
+                        for (String fieldName : List.of("html", "content", "data")) {
+                                JsonNode nestedData = data.get(fieldName);
+                                if (nestedData != null && nestedData.isTextual()) {
+                                        return extractAvailableHours(nestedData.asText());
+                                }
+                        }
+                }
+                return Collections.emptyList();
         }
 
         private MedicalAgreementModel extractMedicos(String data) {

@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import cl.hcs.finder.appointmentback.model.GenericOutputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarInputModel;
 import cl.hcs.finder.appointmentback.model.IndisaCalendarOutputModel;
+import cl.hcs.finder.appointmentback.model.IndisaProposeHoursInputModel;
+import cl.hcs.finder.appointmentback.model.IndisaProposeHoursOutputModel;
 import cl.hcs.finder.appointmentback.model.MedicalAgreementModel;
 import cl.hcs.finder.appointmentback.service.IndisaServiceInvoker;
 import io.swagger.v3.oas.annotations.Operation;
@@ -48,9 +50,42 @@ public class IndisaExternalController {
                         @Parameter(description = "ID de la Especialidad médica", example = "226", required = true) @RequestParam String codeSpeciality,
                         @Parameter(description = "ID del doctor asociada a la sucursal ", example = "14655", required = true) @RequestParam String codeDoctor,
                         @Parameter(description = "sucursal de la Clínica", example = "PROVIDENCIA", required = true) @RequestParam String office,
-                        @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision) {
-                return externalServiceInvoker.invokeIndisaCalendar(
-                                new IndisaCalendarInputModel(codeSpeciality, codeDoctor, office, codePrevision))
+                        @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision,
+                        @Parameter(description = "Mes a consultar (1-12). Si se omite, Indisa usa su rango actual", example = "8", required = false) @RequestParam(required = false) Integer month,
+                        @Parameter(description = "Año a consultar. Debe enviarse junto con month", example = "2026", required = false) @RequestParam(required = false) Integer year) {
+                if ((month == null) != (year == null) || (month != null && (month < 1 || month > 12))) {
+                        return Mono.just(ResponseEntity.badRequest().build());
+                }
+
+                Mono<IndisaCalendarOutputModel> calendar = month == null
+                                ? externalServiceInvoker.invokeIndisaCalendar(
+                                                new IndisaCalendarInputModel(codeSpeciality, codeDoctor, office,
+                                                                codePrevision))
+                                : externalServiceInvoker.invokeIndisaCalendar(
+                                                new IndisaCalendarInputModel(codeSpeciality, codeDoctor, office,
+                                                                codePrevision), month, year);
+
+                return calendar
+                                .map(ResponseEntity::ok)
+                                .defaultIfEmpty(ResponseEntity.notFound().build());
+        }
+
+        @Operation(summary = "Buscar horarios disponibles", description = "Busca los horarios disponibles de un médico en una fecha específica mediante el endpoint propose_hours de Indisa")
+        @ApiResponses({
+                        @ApiResponse(responseCode = "200", content = {
+                                        @Content(schema = @Schema(implementation = IndisaProposeHoursOutputModel.class), mediaType = "application/json") }),
+                        @ApiResponse(responseCode = "404", description = "No existen horarios disponibles"),
+                        @ApiResponse(responseCode = "500", description = "Error consultando Indisa") })
+        @GetMapping("/appointments/propose_hours")
+        public Mono<ResponseEntity<IndisaProposeHoursOutputModel>> invokeExternalServiceProposeHours(
+                        @Parameter(description = "ID de la especialidad", example = "25", required = true) @RequestParam String codeSpeciality,
+                        @Parameter(description = "ID del médico", example = "1754", required = true) @RequestParam String codeDoctor,
+                        @Parameter(description = "Sucursal de la clínica", example = "PROVIDENCIA", required = true) @RequestParam String office,
+                        @Parameter(description = "ID de la previsión", example = "67", required = true) @RequestParam String codePrevision,
+                        @Parameter(description = "Fecha en formato MM/dd/yyyy", example = "08/05/2026", required = true) @RequestParam String date) {
+                return externalServiceInvoker.invokeIndisaProposeHours(
+                                new IndisaProposeHoursInputModel(codeSpeciality, codeDoctor, office, codePrevision, date))
+                                .filter(result -> !result.hours().isEmpty())
                                 .map(ResponseEntity::ok)
                                 .defaultIfEmpty(ResponseEntity.notFound().build());
         }

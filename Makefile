@@ -50,8 +50,9 @@ create-properties-file:
         echo "indisa.app.url.path.prevision=/api/v1/medical_insurances/consulta_indisa" >> $(FILE_PATH); \
         echo "indisa.app.url.path.schedule=/api/v1/enroll_patient/consulta_indisa" >> $(FILE_PATH); \
         echo "indisa.app.url.path=\$${indisa.app.url}/consulta_indisa" >> $(FILE_PATH); \
-        echo "indisa.app.url.path.calendar=/api/v1/create_calendar" >> $(FILE_PATH); \
-        echo "indisa.app.calendar.body=spec_id=<<<PUT_VALUE_HERE>>>&doc_id=<<<PUT_VALUE_HERE>>>&source=ajax&office_id=<<<PUT_VALUE_HERE>>>&month=0&year=0" >> $(FILE_PATH); \
+         echo "indisa.app.url.path.calendar=/api/v1/create_calendar" >> $(FILE_PATH); \
+         echo "indisa.app.url.path.propose-hours=/api/v1/propose_hours" >> $(FILE_PATH); \
+         echo "indisa.app.calendar.body=spec_id=<<<PUT_VALUE_HERE>>>&doc_id=<<<PUT_VALUE_HERE>>>&source=ajax&office_id=<<<PUT_VALUE_HERE>>>&month=<<<PUT_VALUE_HERE>>>&year=<<<PUT_VALUE_HERE>>>" >> $(FILE_PATH); \
         echo "indisa.app.rut=11.111.111-1" >> $(FILE_PATH); \
         echo "indisa.app.agenda.id=67f9519ec9bb0708cbd1a7e6" >> $(FILE_PATH); \
         echo "indisa.app.body=spec_id=&doc_id=&office_id=&source=browser&isapre=&patient_rut=\$${indisa.app.rut}" >> $(FILE_PATH); \

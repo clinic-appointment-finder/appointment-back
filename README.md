@@ -54,6 +54,12 @@ Before starting, ensure you have:
     ```
     The application will be available at `http://localhost:8080`.
 
+### Health check
+
+The `GET /health` endpoint verifies that the application can connect to PostgreSQL.
+It returns `200` with `{"status":"UP","database":"UP"}` when the database responds,
+and `503` with a `DOWN` status otherwise.
+
 ### Running Tests
 
 You can run unit tests using the newly added Make target, which executes them inside the Docker container to ensure environment consistency.
@@ -75,4 +81,3 @@ Once the application is running, Swagger UI documentation is available at:
 ## Application Architecture
 
 ![Architecture Diagram](https://www.plantuml.com/plantuml/png/RL51QiCm4Bph5ODppXTAH9fIGp6cyQ5WJ51YEPZQMaLQKqp8O_g0lY8VgvIKDg7MGQ2PMNPcjF2i70zz9wnsdWm6FoZN4cRoC2WX3DKQYRIMMiEzDeocDRLsyADdtISu2g1ySXGOcUTLVDsgjsht7a53hC5aGSsq89oLv_EdXpeCvw-0Q5DVnWHGArPRvOEJd3pldVRNnK13NNIJzAtVM4UZtZ7zaa2f_bPjQWgakoux0IBSuYI43GxKFgRCKwpUYjLh9h5yIRDqAHFCHjrrz754J1OLQVQOhcKL9yLpKUHhpEyAA7yQh32VF-2Y43TyHASQ-0z5vNI0QUszlKMeBtphDm00)
-
